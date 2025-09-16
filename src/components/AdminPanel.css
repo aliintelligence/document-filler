@@ -1,0 +1,502 @@
+.admin-panel-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+.admin-header {
+  text-align: center;
+  margin-bottom: 30px;
+  padding: 20px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 12px;
+}
+
+.admin-header h1 {
+  margin: 0 0 10px 0;
+  font-size: 2.2rem;
+}
+
+.admin-header p {
+  margin: 0;
+  font-size: 1.1rem;
+  opacity: 0.9;
+}
+
+.access-denied {
+  text-align: center;
+  padding: 60px 20px;
+  color: #666;
+}
+
+.access-denied h2 {
+  color: #c33;
+  margin-bottom: 20px;
+  font-size: 1.8rem;
+}
+
+.admin-tabs {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 30px;
+  border-bottom: 2px solid #f0f0f0;
+  overflow-x: auto;
+}
+
+.tab-btn {
+  padding: 12px 20px;
+  background: none;
+  border: none;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  color: #666;
+  border-bottom: 3px solid transparent;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+  min-width: fit-content;
+}
+
+.tab-btn:hover {
+  color: #667eea;
+  background-color: #f8f9fa;
+}
+
+.tab-btn.active {
+  color: #667eea;
+  border-bottom-color: #667eea;
+  background-color: #f8f9fa;
+}
+
+.admin-content {
+  min-height: 500px;
+}
+
+.loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #666;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f0f0f0;
+  border-top: 4px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 15px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Contracts Section */
+.contracts-section h2 {
+  color: #333;
+  margin-bottom: 20px;
+  font-size: 1.8rem;
+}
+
+.contracts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.contract-card {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.3s ease;
+}
+
+.contract-card:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.contract-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 15px;
+}
+
+.contract-header h3 {
+  margin: 0;
+  color: #333;
+  font-size: 1.2rem;
+  flex: 1;
+  margin-right: 10px;
+}
+
+.status-badge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status-badge.active {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.status-badge.inactive {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.contract-details {
+  margin-bottom: 20px;
+  color: #666;
+  line-height: 1.5;
+}
+
+.contract-details p {
+  margin: 8px 0;
+  font-size: 14px;
+}
+
+.contract-details strong {
+  color: #333;
+}
+
+.contract-actions {
+  border-top: 1px solid #eee;
+  padding-top: 15px;
+}
+
+.toggle-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.toggle-btn.activate {
+  background-color: #28a745;
+  color: white;
+}
+
+.toggle-btn.activate:hover {
+  background-color: #218838;
+}
+
+.toggle-btn.deactivate {
+  background-color: #dc3545;
+  color: white;
+}
+
+.toggle-btn.deactivate:hover {
+  background-color: #c82333;
+}
+
+/* Users Section */
+.users-section h2 {
+  color: #333;
+  margin-bottom: 20px;
+  font-size: 1.8rem;
+}
+
+.users-table {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.users-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.users-table th {
+  background-color: #f8f9fa;
+  color: #333;
+  font-weight: 600;
+  padding: 15px 12px;
+  text-align: left;
+  border-bottom: 2px solid #e9ecef;
+  font-size: 14px;
+}
+
+.users-table td {
+  padding: 12px;
+  border-bottom: 1px solid #e9ecef;
+  font-size: 14px;
+}
+
+.users-table tr:hover {
+  background-color: #f8f9fa;
+}
+
+.role-select {
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.3s ease;
+}
+
+.role-select:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 3px rgba(102, 126, 234, 0.3);
+}
+
+.access-btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.access-btn.enable {
+  background-color: #28a745;
+  color: white;
+}
+
+.access-btn.enable:hover {
+  background-color: #218838;
+}
+
+.access-btn.disable {
+  background-color: #ffc107;
+  color: #212529;
+}
+
+.access-btn.disable:hover {
+  background-color: #e0a800;
+}
+
+/* Permissions Section */
+.permissions-section h2 {
+  color: #333;
+  margin-bottom: 20px;
+  font-size: 1.8rem;
+}
+
+.permissions-matrix {
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.permissions-matrix table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.permissions-matrix th {
+  background-color: #f8f9fa;
+  color: #333;
+  font-weight: 600;
+  padding: 15px 12px;
+  text-align: left;
+  border-bottom: 2px solid #e9ecef;
+  font-size: 14px;
+}
+
+.permissions-matrix td {
+  padding: 12px;
+  border-bottom: 1px solid #e9ecef;
+  text-align: center;
+  font-size: 14px;
+}
+
+.permissions-matrix tr:hover {
+  background-color: #f8f9fa;
+}
+
+.permissions-matrix td:first-child {
+  text-align: left;
+  font-weight: 500;
+}
+
+.permissions-matrix small {
+  color: #666;
+  font-size: 12px;
+}
+
+.permission-btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 80px;
+}
+
+.permission-btn.allowed {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.permission-btn.allowed:hover {
+  background-color: #c3e6cb;
+}
+
+.permission-btn.denied {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.permission-btn.denied:hover {
+  background-color: #f5c6cb;
+}
+
+/* Activity Section */
+.activity-section h2 {
+  color: #333;
+  margin-bottom: 20px;
+  font-size: 1.8rem;
+}
+
+.activity-log {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.activity-item {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.activity-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.activity-user {
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+}
+
+.activity-time {
+  color: #666;
+  font-size: 12px;
+}
+
+.activity-details {
+  color: #555;
+  font-size: 14px;
+}
+
+.activity-details strong {
+  color: #667eea;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.activity-data {
+  background-color: #f8f9fa;
+  padding: 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #495057;
+  border-left: 3px solid #667eea;
+  margin-top: 8px;
+  overflow-x: auto;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .admin-panel-container {
+    padding: 10px;
+  }
+
+  .admin-tabs {
+    flex-wrap: wrap;
+  }
+
+  .tab-btn {
+    flex: 1;
+    min-width: auto;
+  }
+
+  .contracts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .contract-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .users-table {
+    overflow-x: auto;
+  }
+
+  .users-table table {
+    min-width: 600px;
+  }
+
+  .permissions-matrix {
+    overflow-x: auto;
+  }
+
+  .permissions-matrix table {
+    min-width: 500px;
+  }
+
+  .activity-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-header h1 {
+    font-size: 1.8rem;
+  }
+
+  .admin-header p {
+    font-size: 1rem;
+  }
+
+  .tab-btn {
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
+  .contracts-section h2,
+  .users-section h2,
+  .permissions-section h2,
+  .activity-section h2 {
+    font-size: 1.5rem;
+  }
+}

@@ -1,0 +1,275 @@
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../config/supabase';
+import './DocumentSelector.css';
+
+const DocumentSelector = ({ customerData, onDocumentSelect }) => {
+  const { user, userProfile } = useAuth();
+  const [selectedLanguage, setSelectedLanguage] = useState('');
+  const [selectedDocument, setSelectedDocument] = useState('');
+  const [showAdditionalFields, setShowAdditionalFields] = useState(false);
+  const [availableContracts, setAvailableContracts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [additionalData, setAdditionalData] = useState({
+    salespersonName: '',
+    authorizedRepresentative: '',
+    licenseNumber: '',
+    promotions: '',
+    notes: ''
+  });
+
+  useEffect(() => {
+    loadAvailableContracts();
+  }, [user, userProfile]);
+
+  const loadAvailableContracts = async () => {
+    if (!user || !userProfile) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Use the database function to get user's accessible contracts
+      const { data, error } = await supabase.rpc('get_user_contracts', {
+        user_uuid: user.id
+      });
+
+      if (error) {
+        console.error('Error loading contracts:', error);
+        setError('Failed to load available contracts');
+        return;
+      }
+
+      setAvailableContracts(data || []);
+    } catch (err) {
+      console.error('Error loading contracts:', err);
+      setError('Failed to load available contracts');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLanguageSelect = (language) => {
+    setSelectedLanguage(language);
+    setSelectedDocument('');
+    setShowAdditionalFields(false);
+  };
+
+  const handleDocumentSelect = (contract) => {
+    setSelectedDocument(contract);
+    // Check if the document type requires additional fields
+    const requiresAdditional = ['hd-docs', 'charge-slip'].includes(contract.document_type);
+    setShowAdditionalFields(requiresAdditional);
+  };
+
+  const handleAdditionalChange = (e) => {
+    const { name, value } = e.target;
+    setAdditionalData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleProceed = () => {
+    if (selectedDocument) {
+      const finalCustomerData = {
+        ...customerData,
+        ...additionalData
+      };
+
+      onDocumentSelect({
+        language: selectedLanguage,
+        document: selectedDocument,
+        customerData: finalCustomerData
+      });
+    }
+  };
+
+  const getAvailableDocuments = () => {
+    if (!selectedLanguage) return [];
+    return availableContracts.filter(contract => contract.language === selectedLanguage);
+  };
+
+  const getAvailableLanguages = () => {
+    const languages = [...new Set(availableContracts.map(contract => contract.language))];
+    return languages.sort();
+  };
+
+  const getDocumentSpecificFields = () => {
+    if (!selectedDocument) return [];
+
+    if (selectedDocument.document_type === 'hd-docs') {
+      return [
+        { name: 'salespersonName', label: 'Salesperson Name', type: 'text', required: true },
+        { name: 'authorizedRepresentative', label: 'Authorized Representative', type: 'text', required: true },
+        { name: 'licenseNumber', label: 'Service Provider License #', type: 'text', required: false },
+        { name: 'promotions', label: 'Promotions/Offers', type: 'textarea', required: false },
+        { name: 'notes', label: 'Additional Notes', type: 'textarea', required: false }
+      ];
+    } else if (selectedDocument.document_type === 'charge-slip') {
+      return [
+        { name: 'salespersonName', label: 'Salesperson Name', type: 'text', required: false },
+        { name: 'notes', label: 'Additional Equipment Notes', type: 'textarea', required: false }
+      ];
+    }
+    return [];
+  };
+
+  if (loading) {
+    return (
+      <div className="document-selector-container">
+        <div className="loading-spinner">
+          <div className="spinner"></div>
+          <p>Loading available contracts...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="document-selector-container">
+        <div className="error-message">
+          <h3>Error Loading Contracts</h3>
+          <p>{error}</p>
+          <button onClick={loadAvailableContracts} className="retry-btn">
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (availableContracts.length === 0) {
+    return (
+      <div className="document-selector-container">
+        <div className="no-contracts">
+          <h3>No Contracts Available</h3>
+          <p>No contracts are currently available for your role. Please contact your administrator.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="document-selector-container">
+      <h2>Document Selection</h2>
+
+      <div className="customer-summary">
+        <h3>Customer: {customerData.firstName} {customerData.lastName}</h3>
+        <p>{customerData.email} | {customerData.phone}</p>
+      </div>
+
+      <div className="selection-section">
+        <h3>Step 1: Select Language</h3>
+        <div className="language-buttons">
+          {getAvailableLanguages().map(language => (
+            <button
+              key={language}
+              className={`lang-btn ${selectedLanguage === language ? 'active' : ''}`}
+              onClick={() => handleLanguageSelect(language)}
+            >
+              {language === 'english' ? 'English' : language.charAt(0).toUpperCase() + language.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {selectedLanguage && (
+        <div className="selection-section">
+          <h3>Step 2: Select Document</h3>
+          <div className="document-grid">
+            {getAvailableDocuments().map(contract => (
+              <div
+                key={contract.id}
+                className={`document-card ${selectedDocument?.id === contract.id ? 'selected' : ''}`}
+                onClick={() => handleDocumentSelect(contract)}
+              >
+                <div className="document-icon">📄</div>
+                <p>{contract.name}</p>
+                <small className="document-type">{contract.document_type}</small>
+                {['hd-docs', 'charge-slip'].includes(contract.document_type) && (
+                  <span className="requires-info">ℹ️ Requires additional info</span>
+                )}
+                {contract.description && (
+                  <div className="document-description">{contract.description}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {showAdditionalFields && selectedDocument && (
+        <div className="selection-section additional-fields">
+          <h3>Step 3: Additional Information for {selectedDocument.name}</h3>
+          <form className="additional-form">
+            {getDocumentSpecificFields().map(field => (
+              <div key={field.name} className="form-group">
+                <label>
+                  {field.label} {field.required && '*'}
+                </label>
+                {field.type === 'textarea' ? (
+                  <textarea
+                    name={field.name}
+                    value={additionalData[field.name]}
+                    onChange={handleAdditionalChange}
+                    required={field.required}
+                    rows="3"
+                  />
+                ) : (
+                  <input
+                    type={field.type}
+                    name={field.name}
+                    value={additionalData[field.name]}
+                    onChange={handleAdditionalChange}
+                    required={field.required}
+                  />
+                )}
+              </div>
+            ))}
+          </form>
+        </div>
+      )}
+
+      {selectedDocument && (
+        <div className="selection-summary">
+          <h3>Review Selection</h3>
+          <p className="selected-info">
+            <strong>Language:</strong> {selectedLanguage === 'english' ? 'English' : selectedLanguage.charAt(0).toUpperCase() + selectedLanguage.slice(1)}<br/>
+            <strong>Document:</strong> {selectedDocument.name}<br/>
+            <strong>Type:</strong> {selectedDocument.document_type}
+          </p>
+          {showAdditionalFields && (
+            <div className="additional-summary">
+              <strong>Additional Fields:</strong>
+              {getDocumentSpecificFields().map(field => {
+                const value = additionalData[field.name];
+                if (value) {
+                  return (
+                    <div key={field.name}>
+                      {field.label}: {value}
+                    </div>
+                  );
+                }
+                return null;
+              })}
+            </div>
+          )}
+          <button
+            className="proceed-btn"
+            onClick={handleProceed}
+            disabled={showAdditionalFields && getDocumentSpecificFields()
+              .filter(f => f.required)
+              .some(f => !additionalData[f.name])}
+          >
+            Proceed to Fill & Send for Signature
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default DocumentSelector;
