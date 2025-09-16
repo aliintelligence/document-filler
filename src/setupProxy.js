@@ -1,63 +1,53 @@
 const { createProxyMiddleware } = require('http-proxy-middleware');
-const signNowService = require('./services/signNowService');
 
 module.exports = function(app) {
-  // Mock API endpoint for SignNow integration
-  app.post('/api/signnow/upload', (req, res) => {
-    // This is a placeholder for SignNow API integration
-    // In production, this would connect to actual SignNow API
-    console.log('SignNow upload request received');
+  // Proxy SignNow API requests to avoid CORS issues
+  app.use(
+    '/api/signnow',
+    createProxyMiddleware({
+      target: 'https://api.signnow.com',
+      changeOrigin: true,
+      pathRewrite: {
+        '^/api/signnow': ''
+      },
+      onProxyReq: (proxyReq, req, res) => {
+        // Log the proxied request for debugging
+        console.log('Proxying SignNow API request:', req.method, req.url);
+      },
+      onProxyRes: (proxyRes, req, res) => {
+        // Log response status
+        console.log('SignNow API response:', proxyRes.statusCode);
+      },
+      onError: (err, req, res) => {
+        console.error('Proxy error:', err);
 
-    // Simulate successful response
-    setTimeout(() => {
-      res.json({
-        success: true,
-        documentId: 'DOC-' + Date.now(),
-        signatureUrl: 'https://app.signnow.com/document/' + Date.now(),
-        message: 'Document uploaded to SignNow successfully'
-      });
-    }, 1000);
-  });
+        // If proxy fails, use mock response for testing
+        if (req.method === 'POST' && req.url.includes('/document')) {
+          res.json({
+            success: false,
+            mock: true,
+            documentId: 'MOCK-' + Date.now(),
+            message: 'Using mock response (SignNow proxy failed)'
+          });
+        } else {
+          res.status(500).json({ error: 'Proxy error', message: err.message });
+        }
+      }
+    })
+  );
 
   // SignNow webhook endpoint for signature status updates
-  app.post('/api/signnow/webhook', async (req, res) => {
+  app.post('/webhook/signnow', async (req, res) => {
     try {
       console.log('SignNow webhook received:', req.body);
 
-      // Verify webhook authenticity (in production, verify signature)
-      const payload = req.body;
-
-      // Handle the webhook using the SignNow service
-      const result = await signNowService.handleWebhook(payload);
-
+      // For now, just acknowledge the webhook
       res.json({
         success: true,
-        message: 'Webhook processed successfully',
-        result: result
+        message: 'Webhook received'
       });
     } catch (error) {
       console.error('Error processing SignNow webhook:', error);
-      res.status(500).json({
-        success: false,
-        error: error.message
-      });
-    }
-  });
-
-  // Endpoint to manually check document status
-  app.get('/api/signnow/status/:documentId', async (req, res) => {
-    try {
-      const { documentId } = req.params;
-      const status = await signNowService.checkDocumentStatus(documentId);
-
-      res.json({
-        success: true,
-        documentId: documentId,
-        status: status.status,
-        data: status.data
-      });
-    } catch (error) {
-      console.error('Error checking document status:', error);
       res.status(500).json({
         success: false,
         error: error.message

@@ -3,7 +3,11 @@ import supabaseDatabase from './supabaseDatabase';
 
 class SignNowService {
   constructor() {
-    this.apiUrl = 'https://api.signnow.com';
+    // Use proxy in development to avoid CORS issues
+    this.apiUrl = process.env.NODE_ENV === 'development'
+      ? '/api/signnow'
+      : 'https://api.signnow.com';
+
     this.clientId = process.env.REACT_APP_SIGNNOW_CLIENT_ID;
     this.clientSecret = process.env.REACT_APP_SIGNNOW_CLIENT_SECRET;
     this.apiKey = process.env.REACT_APP_SIGNNOW_API_KEY;

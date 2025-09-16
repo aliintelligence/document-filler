@@ -40,6 +40,13 @@ const PDFProcessor = ({ documentData, onComplete }) => {
 
       const fieldMappings = getFieldMappings(documentData.document.id);
 
+      // Log document info for debugging
+      console.log('Processing document:', {
+        id: documentData.document.id,
+        type: documentData.document.document_type,
+        name: documentData.document.name
+      });
+
       // Handle document-specific fields
       if (documentData.document.document_type === 'hd-docs') {
         // Fill HD Docs specific fields
@@ -141,7 +148,7 @@ ${documentData.customerData.notes}`;
             console.log(`Error with field ${fieldName}:`, fieldError.message);
           }
         }
-      } else if (documentData.document.id === 'charge-slip') {
+      } else if (documentData.document.document_type === 'charge-slip' || documentData.document.id === 'charge-slip') {
         // Fill Charge Slip specific fields
         const chargeSlipFields = {
           'CustomerName': `${documentData.customerData.firstName} ${documentData.customerData.lastName}`,
