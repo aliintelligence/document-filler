@@ -139,17 +139,24 @@ const Login = () => {
 
         {/* Demo credentials for testing */}
         <div className="demo-section">
-          <h3>Demo Credentials</h3>
+          <h3>Create Demo Accounts</h3>
+          <p style={{fontSize: '12px', color: '#666', marginBottom: '15px'}}>
+            Use the signup form above to create demo accounts:
+          </p>
           <div className="demo-credentials">
             <div className="demo-cred">
-              <strong>Admin:</strong>
+              <strong>Admin Account:</strong>
               <br />
-              admin@demo.com / password123
+              Email: admin@demo.com<br />
+              Password: password123<br />
+              Role: Administrator
             </div>
             <div className="demo-cred">
-              <strong>Sales Rep:</strong>
+              <strong>Sales Rep Account:</strong>
               <br />
-              sales@demo.com / password123
+              Email: sales@demo.com<br />
+              Password: password123<br />
+              Role: Sales Representative
             </div>
           </div>
         </div>
