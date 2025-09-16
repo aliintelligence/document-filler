@@ -3,42 +3,33 @@ import supabaseDatabase from './supabaseDatabase';
 
 class SignNowService {
   constructor() {
-    this.apiUrl = process.env.REACT_APP_SIGNNOW_API_URL || 'https://api.signnow.com';
+    this.apiUrl = 'https://api.signnow.com';
     this.clientId = process.env.REACT_APP_SIGNNOW_CLIENT_ID;
     this.clientSecret = process.env.REACT_APP_SIGNNOW_CLIENT_SECRET;
-    this.basicAuthToken = process.env.REACT_APP_SIGNNOW_BASIC_AUTH_TOKEN;
+    this.apiKey = process.env.REACT_APP_SIGNNOW_API_KEY;
+    this.applicationId = process.env.REACT_APP_SIGNNOW_APPLICATION_ID;
+    this.basicAuthToken = process.env.REACT_APP_SIGNNOW_BASIC_AUTH;
+    this.redirectUri = process.env.REACT_APP_SIGNNOW_REDIRECT_URI;
     this.accessToken = null;
+
+    // Debug log configuration
+    if (process.env.NODE_ENV === 'development') {
+      console.log('SignNow Configuration:');
+      console.log('- Client ID:', this.clientId?.substring(0, 8) + '...');
+      console.log('- API Key:', this.apiKey?.substring(0, 8) + '...');
+      console.log('- Redirect URI:', this.redirectUri);
+    }
   }
 
-  // Get access token using client credentials
+  // Get access token - use API key directly since OAuth is not working
   async getAccessToken() {
-    if (this.accessToken) {
-      return this.accessToken;
+    // For this SignNow account, we can use the API key directly
+    // This is simpler and works better than the OAuth flow
+    if (this.apiKey) {
+      return this.apiKey;
     }
 
-    try {
-      const response = await axios.post(
-        `${this.apiUrl}/oauth2/token`,
-        {
-          grant_type: 'client_credentials',
-          client_id: this.clientId,
-          client_secret: this.clientSecret,
-          scope: 'user:read user:write document:read document:write'
-        },
-        {
-          headers: {
-            'Authorization': `Basic ${this.basicAuthToken}`,
-            'Content-Type': 'application/x-www-form-urlencoded'
-          }
-        }
-      );
-
-      this.accessToken = response.data.access_token;
-      return this.accessToken;
-    } catch (error) {
-      console.error('Error getting SignNow access token:', error);
-      throw error;
-    }
+    throw new Error('SignNow API key not configured');
   }
 
   // Upload document to SignNow
@@ -48,7 +39,8 @@ class SignNowService {
       const formData = new FormData();
 
       // Create a proper file name
-      const fileName = `${customerData.lastName}_${documentData.documentType}_${Date.now()}.pdf`;
+      const lastName = customerData.lastName || customerData.last_name || 'Customer';
+      const fileName = `${lastName}_${documentData.documentType}_${Date.now()}.pdf`;
       formData.append('file', pdfBlob, fileName);
 
       // Upload document
@@ -71,15 +63,15 @@ class SignNowService {
       // Create signing link
       const signingLink = await this.createSigningLink(documentId, customerData);
 
-      // Save to database
+      // Save to database with correct field names
       const dbDocument = await supabaseDatabase.addDocument({
-        customerId: customerData.id,
-        documentType: documentData.documentType,
+        customer_id: customerData.id,
+        document_type: documentData.documentType,
         language: documentData.language,
-        signNowDocumentId: documentId,
-        signNowSignatureUrl: signingLink,
+        signnow_document_id: documentId,
+        signnow_signature_url: signingLink,
         status: 'sent',
-        additionalFields: documentData.additionalFields || {}
+        additional_fields: documentData.additionalFields || {}
       });
 
       return {
@@ -93,8 +85,8 @@ class SignNowService {
       console.error('Error uploading to SignNow:', error);
 
       // Fallback to mock response for testing
-      if (!this.clientId || !this.clientSecret) {
-        console.log('SignNow credentials not configured, using mock response');
+      if (!this.apiKey) {
+        console.log('SignNow API key not configured, using mock response');
         return this.mockUploadDocument(pdfBlob, customerData, documentData);
       }
 
@@ -166,7 +158,7 @@ class SignNowService {
           reminder: 1,
           expiration_days: 30,
           subject: 'Document Ready for Signature',
-          message: `Hello ${customerData.firstName} ${customerData.lastName},\n\nYour document is ready for electronic signature. Please review and sign at your convenience.\n\nThank you!`
+          message: `Hello ${customerData.firstName || customerData.first_name || ''} ${customerData.lastName || customerData.last_name || ''},\n\nYour document is ready for electronic signature. Please review and sign at your convenience.\n\nThank you!`
         }],
         from: process.env.REACT_APP_SENDER_EMAIL || 'noreply@yourcompany.com',
         cc: [],
@@ -331,15 +323,15 @@ class SignNowService {
     const mockDocumentId = 'MOCK-DOC-' + Date.now();
     const mockSignatureUrl = `https://app.signnow.com/document/${mockDocumentId}`;
 
-    // Save to database
+    // Save to database with correct field names
     const dbDocument = await supabaseDatabase.addDocument({
-      customerId: customerData.id || Date.now().toString(),
-      documentType: documentData.documentType,
+      customer_id: customerData.id || Date.now().toString(),
+      document_type: documentData.documentType,
       language: documentData.language,
-      signNowDocumentId: mockDocumentId,
-      signNowSignatureUrl: mockSignatureUrl,
+      signnow_document_id: mockDocumentId,
+      signnow_signature_url: mockSignatureUrl,
       status: 'sent',
-      additionalFields: documentData.additionalFields || {}
+      additional_fields: documentData.additionalFields || {}
     });
 
     // Simulate async status update
