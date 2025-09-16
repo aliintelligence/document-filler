@@ -10,28 +10,26 @@ module.exports = function(app) {
       pathRewrite: {
         '^/api/signnow': ''
       },
+      // Don't parse body for multipart uploads
       onProxyReq: (proxyReq, req, res) => {
-        // Log the proxied request for debugging
         console.log('Proxying SignNow API request:', req.method, req.url);
+        console.log('Content-Type:', req.headers['content-type']);
+        console.log('Authorization header present:', !!req.headers.authorization);
       },
       onProxyRes: (proxyRes, req, res) => {
-        // Log response status
-        console.log('SignNow API response:', proxyRes.statusCode);
+        console.log('SignNow API response status:', proxyRes.statusCode);
+        if (proxyRes.statusCode >= 400) {
+          console.log('Error response headers:', proxyRes.headers);
+        }
       },
       onError: (err, req, res) => {
-        console.error('Proxy error:', err);
-
-        // If proxy fails, use mock response for testing
-        if (req.method === 'POST' && req.url.includes('/document')) {
-          res.json({
-            success: false,
-            mock: true,
-            documentId: 'MOCK-' + Date.now(),
-            message: 'Using mock response (SignNow proxy failed)'
-          });
-        } else {
-          res.status(500).json({ error: 'Proxy error', message: err.message });
-        }
+        console.error('Proxy error:', err.message);
+        res.status(500).json({
+          error: 'Proxy error',
+          message: err.message,
+          url: req.url,
+          method: req.method
+        });
       }
     })
   );

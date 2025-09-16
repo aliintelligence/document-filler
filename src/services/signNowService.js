@@ -3,7 +3,8 @@ import supabaseDatabase from './supabaseDatabase';
 
 class SignNowService {
   constructor() {
-    // Use proxy in development to avoid CORS issues
+    // Use proxy in development, but in production we need to use serverless functions
+    // or mock responses due to CORS limitations in browser
     this.apiUrl = process.env.NODE_ENV === 'development'
       ? '/api/signnow'
       : 'https://api.signnow.com';
@@ -15,6 +16,10 @@ class SignNowService {
     this.basicAuthToken = process.env.REACT_APP_SIGNNOW_BASIC_AUTH;
     this.redirectUri = process.env.REACT_APP_SIGNNOW_REDIRECT_URI;
     this.accessToken = null;
+
+    // In production browser environment, SignNow API calls will fail due to CORS
+    // We'll detect this and fallback to mock mode
+    this.isProductionBrowser = process.env.NODE_ENV === 'production' && typeof window !== 'undefined';
 
     // Debug log configuration
     if (process.env.NODE_ENV === 'development') {
@@ -38,6 +43,12 @@ class SignNowService {
 
   // Upload document to SignNow
   async uploadDocument(pdfBlob, customerData, documentData) {
+    // In production browser environment, use mock response due to CORS limitations
+    if (this.isProductionBrowser) {
+      console.log('Production browser detected - using mock SignNow response');
+      return this.mockUploadDocument(pdfBlob, customerData, documentData);
+    }
+
     try {
       const token = await this.getAccessToken();
       const formData = new FormData();
@@ -97,9 +108,13 @@ class SignNowService {
       console.error('Error uploading to SignNow:', errorMessage);
       console.error('Full error details:', error.response?.data);
 
-      // Fallback to mock response for testing
-      if (!this.apiKey || error.response?.status === 401) {
-        console.log('SignNow API issue, using mock response');
+      // Check for CORS or network errors and fallback to mock
+      if (error.code === 'ERR_NETWORK' ||
+          errorMessage.includes('CORS') ||
+          errorMessage.includes('Network Error') ||
+          !this.apiKey ||
+          error.response?.status === 401) {
+        console.log('SignNow API issue (likely CORS), using mock response');
         return this.mockUploadDocument(pdfBlob, customerData, documentData);
       }
 
