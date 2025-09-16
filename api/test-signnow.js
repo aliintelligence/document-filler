@@ -19,10 +19,14 @@ module.exports = async function handler(req, res) {
   console.log('- SIGNNOW_API_KEY exists:', !!process.env.SIGNNOW_API_KEY);
   console.log('- SIGNNOW_API_KEY length:', process.env.SIGNNOW_API_KEY?.length);
   console.log('- SIGNNOW_API_KEY first 8 chars:', process.env.SIGNNOW_API_KEY?.substring(0, 8));
+  console.log('- SIGNNOW_API_KEY last 8 chars:', process.env.SIGNNOW_API_KEY?.substring(-8));
+  console.log('- API key includes newlines?', process.env.SIGNNOW_API_KEY?.includes('\n'));
+  console.log('- API key includes spaces?', process.env.SIGNNOW_API_KEY?.includes(' '));
+  console.log('- API key charCodes (first 10):', process.env.SIGNNOW_API_KEY?.substring(0, 10).split('').map(c => c.charCodeAt(0)));
   console.log('- SUPABASE_URL exists:', !!process.env.SUPABASE_URL);
   console.log('- SUPABASE_SERVICE_KEY exists:', !!process.env.SUPABASE_SERVICE_KEY);
 
-  const apiKey = process.env.SIGNNOW_API_KEY;
+  const apiKey = process.env.SIGNNOW_API_KEY?.trim();
 
   if (!apiKey) {
     console.log('❌ NO API KEY FOUND');

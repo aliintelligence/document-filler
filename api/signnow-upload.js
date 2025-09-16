@@ -38,7 +38,7 @@ module.exports = async function handler(req, res) {
     }
 
     // SignNow API configuration
-    const apiKey = process.env.SIGNNOW_API_KEY;
+    const apiKey = process.env.SIGNNOW_API_KEY?.trim();
     const apiUrl = 'https://api.signnow.com';
 
     if (!apiKey) {
