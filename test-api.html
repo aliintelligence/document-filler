@@ -4,9 +4,14 @@
     <title>Test SignNow API</title>
 </head>
 <body>
-    <h1>Test SignNow API</h1>
-    <button onclick="testAPI()">Test API</button>
+    <h1>Test SignNow API - Live Integration</h1>
+    <button onclick="testAPI()">Test Live SignNow Upload</button>
     <div id="result"></div>
+    <div style="margin-top: 20px;">
+        <h3>Results:</h3>
+        <p>✅ If you see a documentId that starts with real characters (not "MOCK-"), the live integration is working!</p>
+        <p>❌ If you see "mock: true" in the response, there's still an issue with the live integration.</p>
+    </div>
 
     <script>
         async function testAPI() {
@@ -15,7 +20,7 @@
 
             try {
                 // Test with minimal data
-                const response = await fetch('/api/signnow-upload', {
+                const response = await fetch('https://document-filler-beta.vercel.app/api/signnow-upload', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
