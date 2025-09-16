@@ -78,8 +78,8 @@ module.exports = async function handler(req, res) {
     const documentId = uploadResponse.data.id;
     console.log('Document uploaded, ID:', documentId);
 
-    // Add signature field
-    await addSignatureField(apiUrl, apiKey, documentId);
+    // Add signature fields based on document type and language
+    await addSignatureField(apiUrl, apiKey, documentId, documentData.documentType, documentData.language);
 
     // Create invite
     const inviteResponse = await createInvite(apiUrl, apiKey, documentId, customerData);
@@ -104,35 +104,137 @@ module.exports = async function handler(req, res) {
   }
 }
 
-async function addSignatureField(apiUrl, apiKey, documentId) {
+async function addSignatureField(apiUrl, apiKey, documentId, documentType, language) {
   try {
-    const fieldData = {
-      fields: [
-        {
-          type: 'signature',
-          x: 150,
-          y: 100,
-          width: 250,
-          height: 60,
-          page_number: 0,
-          role: 'Signer 1',
-          required: true,
-          label: 'Signature'
-        },
-        {
-          type: 'text',
-          x: 420,
-          y: 100,
-          width: 120,
-          height: 30,
-          page_number: 0,
-          role: 'Signer 1',
-          required: true,
-          label: 'Date',
-          prefilled_text: new Date().toLocaleDateString('en-US')
-        }
-      ]
+    console.log(`Adding signature fields for ${documentType} in ${language}`);
+
+    // Define signature field configurations
+    const signatureConfigs = {
+      // HD Contracts English - 3 signatures
+      'hd-docs_english': {
+        fields: [
+          {
+            x: 149,
+            y: 645,
+            width: 340,
+            height: 14,
+            page_number: 0,
+            role: 'Customer',
+            required: true,
+            type: 'signature'
+          },
+          {
+            x: 43,
+            y: 569,
+            width: 433,
+            height: 14,
+            page_number: 1,
+            role: 'Customer',
+            required: true,
+            type: 'signature'
+          },
+          {
+            x: 305,
+            y: 650,
+            width: 200,
+            height: 20,
+            page_number: 12,
+            role: 'Customer',
+            required: true,
+            type: 'signature'
+          }
+        ]
+      },
+      // HD Contracts Spanish - 3 signatures
+      'hd-docs_spanish': {
+        fields: [
+          {
+            x: 149,
+            y: 682,
+            width: 340,
+            height: 14,
+            page_number: 0,
+            role: 'Customer',
+            required: true,
+            type: 'signature'
+          },
+          {
+            x: 43,
+            y: 592,
+            width: 433,
+            height: 14,
+            page_number: 1,
+            role: 'Customer',
+            required: true,
+            type: 'signature'
+          },
+          {
+            x: 265,
+            y: 688,
+            width: 226,
+            height: 14,
+            page_number: 12,
+            role: 'Customer',
+            required: true,
+            type: 'signature'
+          }
+        ]
+      },
+      // Charge slips - 1 signature (default for now, will need coordinates)
+      'charge-slip_english': {
+        fields: [
+          {
+            type: 'signature',
+            x: 150,
+            y: 100,
+            width: 250,
+            height: 60,
+            page_number: 0,
+            role: 'Customer',
+            required: true
+          }
+        ]
+      },
+      'charge-slip_spanish': {
+        fields: [
+          {
+            type: 'signature',
+            x: 150,
+            y: 100,
+            width: 250,
+            height: 60,
+            page_number: 0,
+            role: 'Customer',
+            required: true
+          }
+        ]
+      }
     };
+
+    // Get the configuration key
+    const configKey = `${documentType}_${language}`;
+    let fieldData = signatureConfigs[configKey];
+
+    if (!fieldData) {
+      console.log(`No signature configuration found for ${configKey}, using default`);
+      // Default single signature
+      fieldData = {
+        fields: [
+          {
+            type: 'signature',
+            x: 150,
+            y: 100,
+            width: 250,
+            height: 60,
+            page_number: 0,
+            role: 'Customer',
+            required: true
+          }
+        ]
+      };
+    }
+
+    console.log(`Adding ${fieldData.fields.length} signature fields for ${configKey}`);
 
     await axios.put(
       `${apiUrl}/document/${documentId}`,
