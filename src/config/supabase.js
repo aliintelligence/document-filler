@@ -9,6 +9,9 @@ console.log('Environment:', process.env.NODE_ENV);
 console.log('Supabase URL:', supabaseUrl);
 console.log('Supabase Key (first 20 chars):', supabaseAnonKey.substring(0, 20) + '...');
 console.log('Using env vars:', !!process.env.REACT_APP_SUPABASE_URL);
+console.log('Raw env URL:', process.env.REACT_APP_SUPABASE_URL);
+console.log('Raw env Key (first 20):', process.env.REACT_APP_SUPABASE_ANON_KEY?.substring(0, 20) + '...');
+console.log('All REACT_APP env vars:', Object.keys(process.env).filter(key => key.startsWith('REACT_APP_')));
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
