@@ -1,6 +1,53 @@
 import { supabase } from '../config/supabase';
 
 class SupabaseDatabase {
+  // Helper method to convert camelCase to snake_case for database operations
+  transformCustomerData(customerData) {
+    const transformed = {};
+
+    // Map camelCase to snake_case fields
+    const fieldMap = {
+      firstName: 'first_name',
+      lastName: 'last_name',
+      zipCode: 'zip_code',
+      financeCompany: 'finance_company',
+      interestRate: 'interest_rate',
+      monthlyPayment: 'monthly_payment',
+      totalEquipmentPrice: 'total_equipment_price'
+    };
+
+    for (const [key, value] of Object.entries(customerData)) {
+      const dbField = fieldMap[key] || key;
+      transformed[dbField] = value;
+    }
+
+    return transformed;
+  }
+
+  // Helper method to convert snake_case back to camelCase for frontend
+  transformCustomerFromDb(dbData) {
+    if (!dbData) return dbData;
+
+    const transformed = {};
+    const fieldMap = {
+      first_name: 'firstName',
+      last_name: 'lastName',
+      zip_code: 'zipCode',
+      finance_company: 'financeCompany',
+      interest_rate: 'interestRate',
+      monthly_payment: 'monthlyPayment',
+      total_equipment_price: 'totalEquipmentPrice',
+      created_at: 'createdAt',
+      updated_at: 'updatedAt'
+    };
+
+    for (const [key, value] of Object.entries(dbData)) {
+      const frontendField = fieldMap[key] || key;
+      transformed[frontendField] = value;
+    }
+
+    return transformed;
+  }
   // Customer Operations
   async getAllCustomers() {
     try {
@@ -10,7 +57,7 @@ class SupabaseDatabase {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      return (data || []).map(customer => this.transformCustomerFromDb(customer));
     } catch (error) {
       console.error('Error fetching customers:', error);
       // Fallback to localStorage if Supabase is not configured
@@ -27,7 +74,7 @@ class SupabaseDatabase {
         .single();
 
       if (error) throw error;
-      return data;
+      return this.transformCustomerFromDb(data);
     } catch (error) {
       console.error('Error fetching customer:', error);
       return this.getLocalCustomer(id);
@@ -36,10 +83,11 @@ class SupabaseDatabase {
 
   async addCustomer(customerData) {
     try {
+      const transformedData = this.transformCustomerData(customerData);
       const { data, error } = await supabase
         .from('customers')
         .insert([{
-          ...customerData,
+          ...transformedData,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }])
@@ -47,8 +95,9 @@ class SupabaseDatabase {
         .single();
 
       if (error) throw error;
-      this.saveToLocal('customers', data);
-      return data;
+      const transformedResult = this.transformCustomerFromDb(data);
+      this.saveToLocal('customers', transformedResult);
+      return transformedResult;
     } catch (error) {
       console.error('Error adding customer:', error);
       return this.addLocalCustomer(customerData);
@@ -57,10 +106,11 @@ class SupabaseDatabase {
 
   async updateCustomer(id, customerData) {
     try {
+      const transformedData = this.transformCustomerData(customerData);
       const { data, error } = await supabase
         .from('customers')
         .update({
-          ...customerData,
+          ...transformedData,
           updated_at: new Date().toISOString()
         })
         .eq('id', id)
@@ -68,8 +118,9 @@ class SupabaseDatabase {
         .single();
 
       if (error) throw error;
-      this.updateLocal('customers', id, data);
-      return data;
+      const transformedResult = this.transformCustomerFromDb(data);
+      this.updateLocal('customers', id, transformedResult);
+      return transformedResult;
     } catch (error) {
       console.error('Error updating customer:', error);
       return this.updateLocalCustomer(id, customerData);
@@ -97,11 +148,11 @@ class SupabaseDatabase {
       const { data, error } = await supabase
         .from('customers')
         .select('*')
-        .or(`firstName.ilike.%${searchTerm}%,lastName.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,phone.ilike.%${searchTerm}%`)
+        .or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,phone.ilike.%${searchTerm}%`)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      return (data || []).map(customer => this.transformCustomerFromDb(customer));
     } catch (error) {
       console.error('Error searching customers:', error);
       return this.searchLocalCustomers(searchTerm);

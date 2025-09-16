@@ -80,10 +80,7 @@ const AdminPanel = () => {
   const loadActivityLog = async () => {
     const { data, error } = await supabase
       .from('activity_log')
-      .select(`
-        *,
-        user_profiles (email, full_name)
-      `)
+      .select('*')
       .order('created_at', { ascending: false })
       .limit(50);
 
@@ -92,7 +89,24 @@ const AdminPanel = () => {
       return;
     }
 
-    setActivityLog(data || []);
+    // Fetch user details separately if needed
+    const activityWithUsers = await Promise.all((data || []).map(async (log) => {
+      if (log.user_id) {
+        const { data: userProfile } = await supabase
+          .from('user_profiles')
+          .select('email, full_name')
+          .eq('id', log.user_id)
+          .single();
+
+        return {
+          ...log,
+          user_profiles: userProfile
+        };
+      }
+      return log;
+    }));
+
+    setActivityLog(activityWithUsers);
   };
 
   const toggleContractStatus = async (contractId, currentStatus) => {
