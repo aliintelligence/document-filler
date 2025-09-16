@@ -7,7 +7,7 @@ class SupabaseDatabase {
       const { data, error } = await supabase
         .from('customers')
         .select('*')
-        .order('createdAt', { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       return data || [];
@@ -40,8 +40,8 @@ class SupabaseDatabase {
         .from('customers')
         .insert([{
           ...customerData,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         }])
         .select()
         .single();
@@ -61,7 +61,7 @@ class SupabaseDatabase {
         .from('customers')
         .update({
           ...customerData,
-          updatedAt: new Date().toISOString()
+          updated_at: new Date().toISOString()
         })
         .eq('id', id)
         .select()
@@ -98,7 +98,7 @@ class SupabaseDatabase {
         .from('customers')
         .select('*')
         .or(`firstName.ilike.%${searchTerm}%,lastName.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,phone.ilike.%${searchTerm}%`)
-        .order('createdAt', { ascending: false });
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       return data || [];
@@ -114,8 +114,8 @@ class SupabaseDatabase {
       const { data, error } = await supabase
         .from('documents')
         .select('*')
-        .eq('customerId', customerId)
-        .order('createdAt', { ascending: false });
+        .eq('customer_id', customerId)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       return data || [];
@@ -132,8 +132,8 @@ class SupabaseDatabase {
         .insert([{
           ...documentData,
           status: 'pending',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
         }])
         .select()
         .single();
@@ -151,14 +151,14 @@ class SupabaseDatabase {
     try {
       const updateData = {
         status,
-        updatedAt: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
         ...additionalData
       };
 
       if (status === 'signed') {
-        updateData.signedAt = new Date().toISOString();
+        updateData.signed_at = new Date().toISOString();
       } else if (status === 'sent') {
-        updateData.sentAt = new Date().toISOString();
+        updateData.sent_at = new Date().toISOString();
       }
 
       const { data, error } = await supabase
@@ -200,10 +200,10 @@ class SupabaseDatabase {
   async addSignatureEvent(eventData) {
     try {
       const { data, error } = await supabase
-        .from('signatureEvents')
+        .from('signature_events')
         .insert([{
           ...eventData,
-          createdAt: new Date().toISOString()
+          created_at: new Date().toISOString()
         }])
         .select()
         .single();
@@ -219,10 +219,10 @@ class SupabaseDatabase {
   async getDocumentEvents(documentId) {
     try {
       const { data, error } = await supabase
-        .from('signatureEvents')
+        .from('signature_events')
         .select('*')
-        .eq('documentId', documentId)
-        .order('createdAt', { ascending: false });
+        .eq('document_id', documentId)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       return data || [];
