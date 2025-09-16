@@ -43,19 +43,20 @@ class SignNowService {
 
   // Upload document to SignNow
   async uploadDocument(pdfBlob, customerData, documentData) {
+    // In development, use mock response since serverless functions don't work locally
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Development mode - using mock SignNow response');
+      return this.mockUploadDocument(pdfBlob, customerData, documentData);
+    }
+
     try {
       console.log('Uploading PDF to SignNow via serverless function...');
 
       // Convert blob to base64 for serverless function
       const base64Data = await this.blobToBase64(pdfBlob);
 
-      // Use serverless function for production or development
-      const apiEndpoint = process.env.NODE_ENV === 'development'
-        ? 'http://localhost:3000/api/signnow-upload'
-        : '/api/signnow-upload';
-
       const response = await axios.post(
-        apiEndpoint,
+        '/api/signnow-upload',
         {
           pdfBlob: base64Data,
           customerData: customerData,
