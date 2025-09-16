@@ -24,7 +24,7 @@ const PDFProcessor = ({ documentData, onComplete }) => {
     setError('');
 
     try {
-      const pdfPath = `/pdfs/${documentData.document.file}`;
+      const pdfPath = `/pdfs/${documentData.document.file_path}`;
       const existingPdfBytes = await fetch(pdfPath).then(res => {
         if (!res.ok) throw new Error('PDF template not found');
         return res.arrayBuffer();
@@ -41,7 +41,7 @@ const PDFProcessor = ({ documentData, onComplete }) => {
       const fieldMappings = getFieldMappings(documentData.document.id);
 
       // Handle document-specific fields
-      if (documentData.document.id === 'hd-docs') {
+      if (documentData.document.document_type === 'hd-docs') {
         // Fill HD Docs specific fields
         const hdFieldsMap = {
           'txtCustomerFirstName': documentData.customerData.firstName,
