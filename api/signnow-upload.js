@@ -235,8 +235,9 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
     }
 
     console.log(`Adding ${fieldData.fields.length} signature fields for ${configKey}`);
+    console.log('Field configuration:', JSON.stringify(fieldData, null, 2));
 
-    await axios.put(
+    const response = await axios.put(
       `${apiUrl}/document/${documentId}`,
       fieldData,
       {
@@ -247,9 +248,14 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
       }
     );
 
+    console.log('SignNow field response status:', response.status);
+    console.log('SignNow field response data:', JSON.stringify(response.data, null, 2));
+
     console.log('Signature field added successfully');
   } catch (error) {
     console.error('Error adding signature field:', error.message);
+    console.error('Error status:', error.response?.status);
+    console.error('Error data:', JSON.stringify(error.response?.data, null, 2));
     // Continue even if field addition fails
   }
 }
@@ -326,19 +332,34 @@ async function createInvite(apiUrl, apiKey, documentId, customerData) {
 
 async function saveToDatabase(customerData, documentData, documentId, signingUrl) {
   try {
+    // Determine delivery method and phone number
+    const deliveryMethod = documentData.deliveryMethod || 'email';
+    const smsNumber = documentData.smsNumber || customerData.phone;
+
+    const documentRecord = {
+      customer_id: customerData.id,
+      document_type: documentData.documentType,
+      language: documentData.language,
+      signnow_document_id: documentId,
+      signnow_signature_url: signingUrl,
+      delivery_method: deliveryMethod,
+      sms_number: smsNumber,
+      status: 'sent',
+      sent_at: new Date().toISOString(),
+      additional_fields: documentData.additionalFields || {}
+    };
+
+    // Set delivery timestamps based on method
+    if (deliveryMethod === 'email' || deliveryMethod === 'both') {
+      documentRecord.email_sent_at = new Date().toISOString();
+    }
+    if (deliveryMethod === 'sms' || deliveryMethod === 'both') {
+      documentRecord.sms_sent_at = new Date().toISOString();
+    }
+
     const { data, error } = await supabase
-      .from('sent_documents')
-      .insert([{
-        customer_id: customerData.id,
-        document_type: documentData.documentType,
-        language: documentData.language,
-        signnow_document_id: documentId,
-        signnow_signature_url: signingUrl,
-        status: 'sent',
-        additional_fields: documentData.additionalFields || {},
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      }])
+      .from('documents')
+      .insert([documentRecord])
       .select()
       .single();
 

@@ -18,6 +18,8 @@ const DocumentSelector = ({ customerData, onDocumentSelect }) => {
     promotions: '',
     notes: ''
   });
+  const [deliveryMethod, setDeliveryMethod] = useState('email');
+  const [smsNumber, setSmsNumber] = useState(customerData?.phone || '');
 
   useEffect(() => {
     loadAvailableContracts();
@@ -81,7 +83,14 @@ const DocumentSelector = ({ customerData, onDocumentSelect }) => {
       onDocumentSelect({
         language: selectedLanguage,
         document: selectedDocument,
-        customerData: finalCustomerData
+        customerData: finalCustomerData,
+        documentData: {
+          documentType: selectedDocument.document_type,
+          language: selectedLanguage,
+          deliveryMethod: deliveryMethod,
+          smsNumber: deliveryMethod === 'sms' || deliveryMethod === 'both' ? smsNumber : null,
+          additionalFields: additionalData
+        }
       });
     }
   };
@@ -234,6 +243,70 @@ const DocumentSelector = ({ customerData, onDocumentSelect }) => {
       )}
 
       {selectedDocument && (
+        <div className="selection-section delivery-section">
+          <h3>Step {showAdditionalFields ? '4' : '3'}: Delivery Method</h3>
+          <div className="delivery-options">
+            <div className="delivery-method-grid">
+              <label className={`delivery-option ${deliveryMethod === 'email' ? 'selected' : ''}`}>
+                <input
+                  type="radio"
+                  name="deliveryMethod"
+                  value="email"
+                  checked={deliveryMethod === 'email'}
+                  onChange={(e) => setDeliveryMethod(e.target.value)}
+                />
+                <div className="delivery-icon">📧</div>
+                <div className="delivery-label">Email Only</div>
+                <div className="delivery-description">Send signature link via email</div>
+              </label>
+
+              <label className={`delivery-option ${deliveryMethod === 'sms' ? 'selected' : ''}`}>
+                <input
+                  type="radio"
+                  name="deliveryMethod"
+                  value="sms"
+                  checked={deliveryMethod === 'sms'}
+                  onChange={(e) => setDeliveryMethod(e.target.value)}
+                />
+                <div className="delivery-icon">📱</div>
+                <div className="delivery-label">SMS Only</div>
+                <div className="delivery-description">Send signature link via text message</div>
+              </label>
+
+              <label className={`delivery-option ${deliveryMethod === 'both' ? 'selected' : ''}`}>
+                <input
+                  type="radio"
+                  name="deliveryMethod"
+                  value="both"
+                  checked={deliveryMethod === 'both'}
+                  onChange={(e) => setDeliveryMethod(e.target.value)}
+                />
+                <div className="delivery-icon">📧📱</div>
+                <div className="delivery-label">Email & SMS</div>
+                <div className="delivery-description">Send via both email and text</div>
+              </label>
+            </div>
+
+            {(deliveryMethod === 'sms' || deliveryMethod === 'both') && (
+              <div className="sms-number-field">
+                <label>
+                  SMS Phone Number *
+                </label>
+                <input
+                  type="tel"
+                  value={smsNumber}
+                  onChange={(e) => setSmsNumber(e.target.value)}
+                  placeholder="Enter phone number for SMS"
+                  required
+                />
+                <small>We'll send the signature link to this number</small>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {selectedDocument && (
         <div className="selection-summary">
           <h3>Review Selection</h3>
           <p className="selected-info">
@@ -260,9 +333,12 @@ const DocumentSelector = ({ customerData, onDocumentSelect }) => {
           <button
             className="proceed-btn"
             onClick={handleProceed}
-            disabled={showAdditionalFields && getDocumentSpecificFields()
-              .filter(f => f.required)
-              .some(f => !additionalData[f.name])}
+            disabled={
+              (showAdditionalFields && getDocumentSpecificFields()
+                .filter(f => f.required)
+                .some(f => !additionalData[f.name])) ||
+              ((deliveryMethod === 'sms' || deliveryMethod === 'both') && !smsNumber)
+            }
           >
             Proceed to Fill & Send for Signature
           </button>

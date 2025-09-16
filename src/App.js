@@ -7,6 +7,7 @@ import CustomerForm from './components/CustomerForm';
 import DocumentSelector from './components/DocumentSelector';
 import PDFProcessor from './components/PDFProcessor';
 import CompletionScreen from './components/CompletionScreen';
+import CustomerDashboard from './components/CustomerDashboard';
 import './App.css';
 
 function AppContent() {
@@ -121,8 +122,14 @@ function AppContent() {
                 </button>
               )}
               <button
-                className={`nav-btn ${currentStep !== 'admin' ? 'active' : ''}`}
+                className={`nav-btn ${currentStep !== 'admin' && currentStep !== 'dashboard' ? 'active' : ''}`}
                 onClick={() => setCurrentStep('customerList')}
+              >
+                📄 Documents
+              </button>
+              <button
+                className={`nav-btn ${currentStep === 'dashboard' ? 'active' : ''}`}
+                onClick={() => setCurrentStep('dashboard')}
               >
                 👥 Customers
               </button>
@@ -161,6 +168,10 @@ function AppContent() {
       <main className="app-main">
         {currentStep === 'admin' && userProfile?.role === 'admin' && (
           <AdminPanel />
+        )}
+
+        {currentStep === 'dashboard' && (
+          <CustomerDashboard />
         )}
 
         {currentStep === 'customerList' && (
