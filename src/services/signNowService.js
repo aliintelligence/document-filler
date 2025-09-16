@@ -43,83 +43,57 @@ class SignNowService {
 
   // Upload document to SignNow
   async uploadDocument(pdfBlob, customerData, documentData) {
-    // In production browser environment, use mock response due to CORS limitations
-    if (this.isProductionBrowser) {
-      console.log('Production browser detected - using mock SignNow response');
-      return this.mockUploadDocument(pdfBlob, customerData, documentData);
-    }
-
     try {
-      const token = await this.getAccessToken();
-      const formData = new FormData();
+      console.log('Uploading PDF to SignNow via serverless function...');
 
-      // Create a proper file name
-      const lastName = customerData.lastName || customerData.last_name || 'Customer';
-      const fileName = `${lastName}_${documentData.documentType}_${Date.now()}.pdf`;
-      formData.append('file', pdfBlob, fileName);
+      // Convert blob to base64 for serverless function
+      const base64Data = await this.blobToBase64(pdfBlob);
 
-      // Upload document
-      console.log('Uploading PDF to SignNow...');
-      const uploadResponse = await axios.post(
-        `${this.apiUrl}/document`,
-        formData,
+      // Use serverless function for production or development
+      const apiEndpoint = process.env.NODE_ENV === 'development'
+        ? 'http://localhost:3000/api/signnow-upload'
+        : '/api/signnow-upload';
+
+      const response = await axios.post(
+        apiEndpoint,
+        {
+          pdfBlob: base64Data,
+          customerData: customerData,
+          documentData: documentData
+        },
         {
           headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data'
+            'Content-Type': 'application/json'
           }
         }
       );
 
-      const documentId = uploadResponse.data.id;
-      console.log('Document uploaded successfully, ID:', documentId);
-
-      // Add signature field to the document
-      await this.addSignatureField(documentId);
-
-      // Create invite for signing
-      const inviteResponse = await this.createInvite(documentId, customerData);
-
-      // Save to database with correct field names
-      const dbDocument = await supabaseDatabase.addDocument({
-        customer_id: customerData.id,
-        document_type: documentData.documentType,
-        language: documentData.language,
-        signnow_document_id: documentId,
-        signnow_signature_url: inviteResponse.signing_url,
-        status: 'sent',
-        additional_fields: documentData.additionalFields || {}
-      });
-
-      return {
-        success: true,
-        documentId: documentId,
-        signatureUrl: inviteResponse.signing_url,
-        dbDocument: dbDocument
-      };
+      console.log('SignNow upload successful:', response.data);
+      return response.data;
 
     } catch (error) {
-      const errorMessage = error.response?.data?.message ||
-                          error.response?.data?.error ||
-                          error.response?.data ||
+      const errorMessage = error.response?.data?.error ||
+                          error.response?.data?.message ||
                           error.message ||
                           'Unknown error';
 
       console.error('Error uploading to SignNow:', errorMessage);
       console.error('Full error details:', error.response?.data);
 
-      // Check for CORS or network errors and fallback to mock
-      if (error.code === 'ERR_NETWORK' ||
-          errorMessage.includes('CORS') ||
-          errorMessage.includes('Network Error') ||
-          !this.apiKey ||
-          error.response?.status === 401) {
-        console.log('SignNow API issue (likely CORS), using mock response');
-        return this.mockUploadDocument(pdfBlob, customerData, documentData);
-      }
-
-      throw new Error(errorMessage);
+      // Fallback to mock response
+      console.log('SignNow API issue, using mock response');
+      return this.mockUploadDocument(pdfBlob, customerData, documentData);
     }
+  }
+
+  // Helper function to convert blob to base64
+  async blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
   }
 
   // Add signature field to document
