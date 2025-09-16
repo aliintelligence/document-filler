@@ -1,24 +1,8 @@
 {
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "build"
-      }
-    }
-  ],
   "routes": [
     {
       "src": "/(.*)",
       "dest": "/index.html"
     }
-  ],
-  "env": {
-    "REACT_APP_SUPABASE_URL": "@react_app_supabase_url",
-    "REACT_APP_SUPABASE_ANON_KEY": "@react_app_supabase_anon_key",
-    "REACT_APP_SIGNNOW_CLIENT_ID": "@react_app_signnow_client_id",
-    "REACT_APP_SIGNNOW_CLIENT_SECRET": "@react_app_signnow_client_secret",
-    "REACT_APP_SIGNNOW_REDIRECT_URI": "@react_app_signnow_redirect_uri"
-  }
+  ]
 }
