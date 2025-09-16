@@ -23,9 +23,17 @@ module.exports = async function handler(req, res) {
   }
 
   try {
+    console.log('SignNow upload function called');
+    console.log('Environment check:', {
+      hasApiKey: !!process.env.SIGNNOW_API_KEY,
+      hasSupabaseUrl: !!process.env.SUPABASE_URL,
+      hasSupabaseKey: !!process.env.SUPABASE_SERVICE_KEY
+    });
+
     const { pdfBlob, customerData, documentData } = req.body;
 
     if (!pdfBlob || !customerData || !documentData) {
+      console.log('Missing required data:', { pdfBlob: !!pdfBlob, customerData: !!customerData, documentData: !!documentData });
       return res.status(400).json({ error: 'Missing required data' });
     }
 
