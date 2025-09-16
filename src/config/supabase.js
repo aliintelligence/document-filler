@@ -4,14 +4,13 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'https://rfvxnfsgohcnbgtziurc.supabase.co';
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmdnhuZnNnb2hjbmJndHppdXJjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwMzI1MjYsImV4cCI6MjA3MzYwODUyNn0.vyxspeVj26mz2neyefjhM36B63fPZy805qFjpDHQPZQ';
 
-// Debug environment variables
-console.log('Environment:', process.env.NODE_ENV);
-console.log('Supabase URL:', supabaseUrl);
-console.log('Supabase Key (first 20 chars):', supabaseAnonKey.substring(0, 20) + '...');
-console.log('Using env vars:', !!process.env.REACT_APP_SUPABASE_URL);
-console.log('Raw env URL:', process.env.REACT_APP_SUPABASE_URL);
-console.log('Raw env Key (first 20):', process.env.REACT_APP_SUPABASE_ANON_KEY?.substring(0, 20) + '...');
-console.log('All REACT_APP env vars:', Object.keys(process.env).filter(key => key.startsWith('REACT_APP_')));
+// Debug environment variables (only in development)
+if (process.env.NODE_ENV === 'development') {
+  console.log('Environment:', process.env.NODE_ENV);
+  console.log('Supabase URL:', supabaseUrl);
+  console.log('Supabase Key (first 20 chars):', supabaseAnonKey.substring(0, 20) + '...');
+  console.log('Using env vars:', !!process.env.REACT_APP_SUPABASE_URL);
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
