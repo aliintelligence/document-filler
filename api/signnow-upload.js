@@ -237,19 +237,52 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
     console.log(`Adding ${fieldData.fields.length} signature fields for ${configKey}`);
     console.log('Field configuration:', JSON.stringify(fieldData, null, 2));
 
-    const response = await axios.put(
-      `${apiUrl}/document/${documentId}`,
-      fieldData,
-      {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
+    // For HD documents with multiple fields, add them one by one
+    if (fieldData.fields.length > 1) {
+      console.log('Multiple fields detected, adding one by one...');
+
+      for (let i = 0; i < fieldData.fields.length; i++) {
+        const singleFieldData = {
+          fields: [fieldData.fields[i]]
+        };
+
+        console.log(`Adding field ${i + 1}/${fieldData.fields.length}:`, JSON.stringify(singleFieldData, null, 2));
+
+        try {
+          const response = await axios.put(
+            `${apiUrl}/document/${documentId}`,
+            singleFieldData,
+            {
+              headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+          console.log(`Field ${i + 1} response status:`, response.status);
+          console.log(`Field ${i + 1} response data:`, JSON.stringify(response.data, null, 2));
+        } catch (fieldError) {
+          console.error(`Error adding field ${i + 1}:`, fieldError.message);
+          console.error(`Field ${i + 1} error status:`, fieldError.response?.status);
+          console.error(`Field ${i + 1} error data:`, JSON.stringify(fieldError.response?.data, null, 2));
         }
       }
-    );
+    } else {
+      // Single field, add normally
+      const response = await axios.put(
+        `${apiUrl}/document/${documentId}`,
+        fieldData,
+        {
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
 
-    console.log('SignNow field response status:', response.status);
-    console.log('SignNow field response data:', JSON.stringify(response.data, null, 2));
+      console.log('SignNow field response status:', response.status);
+      console.log('SignNow field response data:', JSON.stringify(response.data, null, 2));
+    }
 
     console.log('Signature field added successfully');
   } catch (error) {
