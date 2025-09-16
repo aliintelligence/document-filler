@@ -344,7 +344,7 @@ ${documentData.customerData.notes}`;
         pdfBlob,
         data.customerData,
         {
-          documentType: data.document.id,
+          documentType: data.document.document_type,
           language: data.language,
           additionalFields: {
             salespersonName: data.customerData.salespersonName,
