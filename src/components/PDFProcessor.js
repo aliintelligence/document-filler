@@ -104,17 +104,38 @@ ${documentData.customerData.notes}`;
         // Fill all HD Docs fields
         for (const [fieldName, value] of Object.entries(hdFieldsMap)) {
           try {
-            // Try to get the field
-            const field = form.getField(fieldName);
-            if (field && value !== undefined && value !== null) {
-              // Check if it's a text field
-              if (field.constructor.name === 'PDFTextField') {
-                const textField = form.getTextField(fieldName);
+            // Try multiple methods to set the field value
+            let fieldSet = false;
+
+            // Method 1: Try as text field directly
+            try {
+              const textField = form.getTextField(fieldName);
+              if (textField && value !== undefined && value !== null) {
                 textField.setText(value.toString());
                 console.log(`Set field ${fieldName} to: ${value}`);
-              } else {
-                console.log(`Field ${fieldName} is not a text field, type: ${field.constructor.name}`);
+                fieldSet = true;
               }
+            } catch (e) {
+              // Field might not be a text field, try other methods
+            }
+
+            // Method 2: If not set yet, try generic field approach
+            if (!fieldSet) {
+              try {
+                const field = form.getField(fieldName);
+                if (field && value !== undefined && value !== null) {
+                  // Try to cast to text field
+                  field.setText && field.setText(value.toString());
+                  console.log(`Set field ${fieldName} via generic method to: ${value}`);
+                  fieldSet = true;
+                }
+              } catch (e) {
+                // Continue to next method
+              }
+            }
+
+            if (!fieldSet) {
+              console.log(`Could not set field ${fieldName} - field might not exist or be readonly`);
             }
           } catch (fieldError) {
             console.log(`Error with field ${fieldName}:`, fieldError.message);
@@ -159,17 +180,38 @@ ${documentData.customerData.notes}`;
         // Fill all Charge Slip fields
         for (const [fieldName, value] of Object.entries(chargeSlipFields)) {
           try {
-            // Try to get the field
-            const field = form.getField(fieldName);
-            if (field && value !== undefined && value !== null) {
-              // Check if it's a text field
-              if (field.constructor.name === 'PDFTextField') {
-                const textField = form.getTextField(fieldName);
+            // Try multiple methods to set the field value
+            let fieldSet = false;
+
+            // Method 1: Try as text field directly
+            try {
+              const textField = form.getTextField(fieldName);
+              if (textField && value !== undefined && value !== null) {
                 textField.setText(value.toString());
                 console.log(`Set field ${fieldName} to: ${value}`);
-              } else {
-                console.log(`Field ${fieldName} is not a text field, type: ${field.constructor.name}`);
+                fieldSet = true;
               }
+            } catch (e) {
+              // Field might not be a text field, try other methods
+            }
+
+            // Method 2: If not set yet, try generic field approach
+            if (!fieldSet) {
+              try {
+                const field = form.getField(fieldName);
+                if (field && value !== undefined && value !== null) {
+                  // Try to cast to text field
+                  field.setText && field.setText(value.toString());
+                  console.log(`Set field ${fieldName} via generic method to: ${value}`);
+                  fieldSet = true;
+                }
+              } catch (e) {
+                // Continue to next method
+              }
+            }
+
+            if (!fieldSet) {
+              console.log(`Could not set field ${fieldName} - field might not exist or be readonly`);
             }
           } catch (fieldError) {
             console.log(`Error with field ${fieldName}:`, fieldError.message);

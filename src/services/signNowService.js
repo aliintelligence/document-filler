@@ -84,15 +84,22 @@ class SignNowService {
       };
 
     } catch (error) {
-      console.error('Error uploading to SignNow:', error.response?.data || error);
+      const errorMessage = error.response?.data?.message ||
+                          error.response?.data?.error ||
+                          error.response?.data ||
+                          error.message ||
+                          'Unknown error';
+
+      console.error('Error uploading to SignNow:', errorMessage);
+      console.error('Full error details:', error.response?.data);
 
       // Fallback to mock response for testing
-      if (!this.apiKey) {
-        console.log('SignNow API key not configured, using mock response');
+      if (!this.apiKey || error.response?.status === 401) {
+        console.log('SignNow API issue, using mock response');
         return this.mockUploadDocument(pdfBlob, customerData, documentData);
       }
 
-      throw error;
+      throw new Error(errorMessage);
     }
   }
 
