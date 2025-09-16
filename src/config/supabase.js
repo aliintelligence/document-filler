@@ -4,6 +4,12 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'YOUR_SUPABASE_URL';
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
 
+// Debug environment variables in production
+if (process.env.NODE_ENV === 'production') {
+  console.log('Supabase URL:', supabaseUrl);
+  console.log('Supabase Key exists:', !!supabaseAnonKey && supabaseAnonKey !== 'YOUR_SUPABASE_ANON_KEY');
+}
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Database schema for reference
