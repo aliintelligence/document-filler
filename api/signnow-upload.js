@@ -180,32 +180,32 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
           }
         ]
       },
-      // Charge slips - 1 signature (default for now, will need coordinates)
+      // Charge slips - 1 signature
       'charge-slip_english': {
         fields: [
           {
-            type: 'signature',
-            x: 150,
-            y: 100,
-            width: 250,
-            height: 60,
+            x: 20,
+            y: 447,
+            width: 180,
+            height: 24,
             page_number: 0,
             role: 'Customer',
-            required: true
+            required: true,
+            type: 'signature'
           }
         ]
       },
       'charge-slip_spanish': {
         fields: [
           {
-            type: 'signature',
-            x: 150,
-            y: 100,
-            width: 250,
-            height: 60,
+            x: 20,
+            y: 447,
+            width: 180,
+            height: 24,
             page_number: 0,
             role: 'Customer',
-            required: true
+            required: true,
+            type: 'signature'
           }
         ]
       }
