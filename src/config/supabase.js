@@ -1,14 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 
-// These will be environment variables in production
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'YOUR_SUPABASE_URL';
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || 'YOUR_SUPABASE_ANON_KEY';
+// Production configuration - fallback if env vars don't load
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'https://rfvxnfsgohcnbgtziurc.supabase.co';
+const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmdnhuZnNnb2hjbmJndHppdXJjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgwMzI1MjYsImV4cCI6MjA3MzYwODUyNn0.vyxspeVj26mz2neyefjhM36B63fPZy805qFjpDHQPZQ';
 
-// Debug environment variables in production
-if (process.env.NODE_ENV === 'production') {
-  console.log('Supabase URL:', supabaseUrl);
-  console.log('Supabase Key exists:', !!supabaseAnonKey && supabaseAnonKey !== 'YOUR_SUPABASE_ANON_KEY');
-}
+// Debug environment variables
+console.log('Environment:', process.env.NODE_ENV);
+console.log('Supabase URL:', supabaseUrl);
+console.log('Supabase Key (first 20 chars):', supabaseAnonKey.substring(0, 20) + '...');
+console.log('Using env vars:', !!process.env.REACT_APP_SUPABASE_URL);
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
