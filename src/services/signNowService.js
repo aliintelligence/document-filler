@@ -44,6 +44,7 @@ class SignNowService {
       formData.append('file', pdfBlob, fileName);
 
       // Upload document
+      console.log('Uploading PDF to SignNow...');
       const uploadResponse = await axios.post(
         `${this.apiUrl}/document`,
         formData,
@@ -56,12 +57,13 @@ class SignNowService {
       );
 
       const documentId = uploadResponse.data.id;
+      console.log('Document uploaded successfully, ID:', documentId);
 
-      // Add fields to the document
-      await this.addFieldsToDocument(documentId, customerData);
+      // Add signature field to the document
+      await this.addSignatureField(documentId);
 
-      // Create signing link
-      const signingLink = await this.createSigningLink(documentId, customerData);
+      // Create invite for signing
+      const inviteResponse = await this.createInvite(documentId, customerData);
 
       // Save to database with correct field names
       const dbDocument = await supabaseDatabase.addDocument({
@@ -69,7 +71,7 @@ class SignNowService {
         document_type: documentData.documentType,
         language: documentData.language,
         signnow_document_id: documentId,
-        signnow_signature_url: signingLink,
+        signnow_signature_url: inviteResponse.signing_url,
         status: 'sent',
         additional_fields: documentData.additionalFields || {}
       });
@@ -77,12 +79,12 @@ class SignNowService {
       return {
         success: true,
         documentId: documentId,
-        signatureUrl: signingLink,
+        signatureUrl: inviteResponse.signing_url,
         dbDocument: dbDocument
       };
 
     } catch (error) {
-      console.error('Error uploading to SignNow:', error);
+      console.error('Error uploading to SignNow:', error.response?.data || error);
 
       // Fallback to mock response for testing
       if (!this.apiKey) {
@@ -94,40 +96,45 @@ class SignNowService {
     }
   }
 
-  // Add signature fields to document
-  async addFieldsToDocument(documentId, customerData) {
+  // Add signature field to document
+  async addSignatureField(documentId) {
     try {
       const token = await this.getAccessToken();
 
-      const fields = [
-        {
-          type: 'signature',
-          x: 100,
-          y: 700,
-          width: 200,
-          height: 50,
-          page_number: 0,
-          role: 'Customer',
-          required: true,
-          label: 'Customer Signature'
-        },
-        {
-          type: 'text',
-          x: 350,
-          y: 700,
-          width: 150,
-          height: 30,
-          page_number: 0,
-          role: 'Customer',
-          required: true,
-          label: 'Date',
-          prefilled_text: new Date().toLocaleDateString()
-        }
-      ];
+      // Add a signature field to the document
+      // Place it on the first page, bottom area for signature
+      const requestBody = {
+        fields: [
+          {
+            type: 'signature',
+            x: 150,
+            y: 100,  // Bottom of page (lower y value = bottom in PDF coordinates)
+            width: 250,
+            height: 60,
+            page_number: 0,  // First page (0-indexed)
+            role: 'Signer 1',
+            required: true,
+            label: 'Signature'
+          },
+          {
+            type: 'text',
+            x: 420,
+            y: 100,
+            width: 120,
+            height: 30,
+            page_number: 0,
+            role: 'Signer 1',
+            required: true,
+            label: 'Date',
+            prefilled_text: new Date().toLocaleDateString('en-US')
+          }
+        ]
+      };
 
-      await axios.put(
+      console.log('Adding signature field to document...');
+      const response = await axios.put(
         `${this.apiUrl}/document/${documentId}`,
-        { fields },
+        requestBody,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -136,36 +143,41 @@ class SignNowService {
         }
       );
 
+      console.log('Signature field added successfully');
       return true;
     } catch (error) {
-      console.error('Error adding fields to document:', error);
+      console.error('Error adding signature field:', error.response?.data || error);
+      // Continue even if field addition fails - document can still be signed
       return false;
     }
   }
 
-  // Create signing link for customer
-  async createSigningLink(documentId, customerData) {
+  // Create invite for document signing
+  async createInvite(documentId, customerData) {
     try {
       const token = await this.getAccessToken();
 
+      // Create invite with role-based signing
       const inviteData = {
         document_id: documentId,
         to: [{
-          email: customerData.email,
-          role: 'Customer',
+          email: customerData.email || customerData.email_address,
+          role: 'Signer 1',  // Match the role used in field creation
+          role_id: '1',
           order: 1,
-          authentication_type: 'email',
-          reminder: 1,
+          authentication_type: 'password',  // or 'email' for simpler auth
+          reminder: 1,  // Send reminder after 1 day
           expiration_days: 30,
           subject: 'Document Ready for Signature',
           message: `Hello ${customerData.firstName || customerData.first_name || ''} ${customerData.lastName || customerData.last_name || ''},\n\nYour document is ready for electronic signature. Please review and sign at your convenience.\n\nThank you!`
         }],
         from: process.env.REACT_APP_SENDER_EMAIL || 'noreply@yourcompany.com',
         cc: [],
-        redirect_uri: `${process.env.REACT_APP_BASE_URL}/signature-complete`,
-        redirect_target: 'iframe'
+        redirect_uri: process.env.REACT_APP_BASE_URL ? `${process.env.REACT_APP_BASE_URL}/signature-complete` : null,
+        client_timestamp: Math.floor(Date.now() / 1000)
       };
 
+      console.log('Creating invite for document:', documentId);
       const response = await axios.post(
         `${this.apiUrl}/document/${documentId}/invite`,
         inviteData,
@@ -177,21 +189,46 @@ class SignNowService {
         }
       );
 
-      // Get the signing link
-      const linkResponse = await axios.get(
-        `${this.apiUrl}/document/${documentId}/invite/${response.data.id}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
+      console.log('Invite created successfully:', response.data);
 
-      return linkResponse.data.signing_link || `https://app.signnow.com/document/${documentId}`;
+      // Try to get signing link from response
+      let signingUrl = `https://app.signnow.com/document/${documentId}`;
+
+      if (response.data && response.data.id) {
+        try {
+          // Get the signing link for the invite
+          const linkResponse = await axios.get(
+            `${this.apiUrl}/document/${documentId}/invite/${response.data.id}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            }
+          );
+
+          if (linkResponse.data && linkResponse.data.signing_link) {
+            signingUrl = linkResponse.data.signing_link;
+          }
+        } catch (linkError) {
+          console.log('Could not get signing link, using default URL');
+        }
+      }
+
+      return {
+        success: true,
+        invite_id: response.data.id,
+        signing_url: signingUrl
+      };
 
     } catch (error) {
-      console.error('Error creating signing link:', error);
-      return `https://app.signnow.com/document/${documentId}`;
+      console.error('Error creating invite:', error.response?.data || error);
+
+      // Return default URL if invite fails
+      return {
+        success: false,
+        signing_url: `https://app.signnow.com/document/${documentId}`,
+        error: error.message
+      };
     }
   }
 
@@ -322,6 +359,8 @@ class SignNowService {
   async mockUploadDocument(pdfBlob, customerData, documentData) {
     const mockDocumentId = 'MOCK-DOC-' + Date.now();
     const mockSignatureUrl = `https://app.signnow.com/document/${mockDocumentId}`;
+
+    console.log('Using mock SignNow response (API key not configured)');
 
     // Save to database with correct field names
     const dbDocument = await supabaseDatabase.addDocument({
