@@ -61,7 +61,7 @@ const DocumentSelector = ({ customerData, onDocumentSelect }) => {
   const handleDocumentSelect = (contract) => {
     setSelectedDocument(contract);
     // Check if the document type requires additional fields
-    const requiresAdditional = ['hd-docs', 'charge-slip'].includes(contract.document_type);
+    const requiresAdditional = ['hd-docs', 'charge-slip', 'membership-plan'].includes(contract.document_type);
     setShowAdditionalFields(requiresAdditional);
   };
 
@@ -120,6 +120,17 @@ const DocumentSelector = ({ customerData, onDocumentSelect }) => {
       return [
         { name: 'salespersonName', label: 'Salesperson Name', type: 'text', required: false },
         { name: 'notes', label: 'Additional Equipment Notes', type: 'textarea', required: false }
+      ];
+    } else if (selectedDocument.document_type === 'membership-plan') {
+      return [
+        { name: 'membershipType', label: 'Membership Type', type: 'select', required: true, options: [
+          { value: 'platinum', label: 'Platinum (3 years)' },
+          { value: 'gold', label: 'Gold (2 years)' },
+          { value: 'silver', label: 'Silver (1 year)' }
+        ]},
+        { name: 'installDate', label: 'Installation Date', type: 'date', required: false },
+        { name: 'membershipStartDate', label: 'Membership Start Date', type: 'date', required: false },
+        { name: 'notes', label: 'Additional Notes', type: 'textarea', required: false }
       ];
     }
     return [];
@@ -198,7 +209,7 @@ const DocumentSelector = ({ customerData, onDocumentSelect }) => {
                 <div className="document-icon">📄</div>
                 <p>{contract.name}</p>
                 <small className="document-type">{contract.document_type}</small>
-                {['hd-docs', 'charge-slip'].includes(contract.document_type) && (
+                {['hd-docs', 'charge-slip', 'membership-plan'].includes(contract.document_type) && (
                   <span className="requires-info">ℹ️ Requires additional info</span>
                 )}
                 {contract.description && (
@@ -227,6 +238,20 @@ const DocumentSelector = ({ customerData, onDocumentSelect }) => {
                     required={field.required}
                     rows="3"
                   />
+                ) : field.type === 'select' ? (
+                  <select
+                    name={field.name}
+                    value={additionalData[field.name]}
+                    onChange={handleAdditionalChange}
+                    required={field.required}
+                  >
+                    <option value="">Select {field.label}</option>
+                    {field.options?.map(option => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 ) : (
                   <input
                     type={field.type}

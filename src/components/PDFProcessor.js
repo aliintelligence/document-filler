@@ -164,6 +164,125 @@ ${documentData.customerData.notes}`;
             console.log(`✗ Error with field ${fieldName}:`, fieldError.message);
           }
         }
+      } else if (documentData.document.document_type === 'membership-plan') {
+        // Fill Membership Plan specific fields
+        const membershipFields = {
+          'CustomerName': `${documentData.customerData.firstName} ${documentData.customerData.lastName}`,
+          'CustomerAddress': documentData.customerData.address,
+          'City': documentData.customerData.city,
+          'State': documentData.customerData.state,
+          'Zip': documentData.customerData.zipCode,
+          'CustomerPhone': documentData.customerData.phone,
+          'CustomerEmail': documentData.customerData.email,
+          'CustomerFirstName': documentData.customerData.firstName,
+          'CustomerLastName': documentData.customerData.lastName,
+          'FinanceCompany': documentData.customerData.financeCompany,
+          'InstallDate': documentData.customerData.installDate || '',
+          'MonthlyPayment': documentData.customerData.monthlyPayment,
+          'TotalPrice': documentData.customerData.totalEquipmentPrice,
+          'Equipment': documentData.customerData.equipment
+        };
+
+        // Handle membership type selection and dates
+        const membershipType = documentData.customerData.membershipType || 'platinum';
+        const today = new Date();
+
+        // Set membership type checkboxes
+        membershipFields[`${membershipType.charAt(0).toUpperCase() + membershipType.slice(1)}Membership`] = 'Yes';
+
+        // Calculate membership duration based on type
+        let membershipDurationYears = 3; // Default to Platinum (3 years)
+        if (membershipType === 'gold') {
+          membershipDurationYears = 2;
+        } else if (membershipType === 'silver') {
+          membershipDurationYears = 1;
+        }
+
+        // Set membership start and end dates
+        const startDate = documentData.customerData.membershipStartDate ?
+          new Date(documentData.customerData.membershipStartDate) : today;
+        const endDate = new Date(startDate);
+        endDate.setFullYear(endDate.getFullYear() + membershipDurationYears);
+
+        membershipFields['MembershipStartDate'] = startDate.toLocaleDateString('en-US');
+        membershipFields['MembershipEndDate'] = endDate.toLocaleDateString('en-US');
+        membershipFields['StartDate'] = startDate.toLocaleDateString('en-US');
+        membershipFields['EndDate'] = endDate.toLocaleDateString('en-US');
+
+        // Set today's date for various date fields
+        const todayFormatted = today.toLocaleDateString('en-US');
+        membershipFields['Date'] = todayFormatted;
+        membershipFields['SignatureDate'] = todayFormatted;
+        membershipFields['ContractDate'] = todayFormatted;
+
+        // Fill all Membership Plan fields
+        console.log('=== MEMBERSHIP PLAN: Starting field filling ===');
+        console.log('Available form fields:', fields.map(f => f.getName()));
+        console.log('Membership type:', membershipType);
+        console.log('Membership duration:', membershipDurationYears, 'years');
+
+        for (const [fieldName, value] of Object.entries(membershipFields)) {
+          try {
+            // Check if field exists in the form first
+            const fieldExists = fields.some(f => f.getName() === fieldName);
+
+            if (!fieldExists) {
+              console.log(`Field ${fieldName} does not exist in PDF, skipping...`);
+              continue;
+            }
+
+            // Try to set the field value
+            let fieldSet = false;
+
+            // Method 1: Try as text field directly
+            try {
+              const textField = form.getTextField(fieldName);
+              if (textField && value !== undefined && value !== null) {
+                textField.setText(value.toString());
+                console.log(`✓ Set field ${fieldName} to: ${value}`);
+                fieldSet = true;
+              }
+            } catch (e) {
+              // Field might not be a text field, try other methods
+            }
+
+            // Method 2: Try as checkbox for membership type
+            if (!fieldSet && (fieldName.includes('Membership') && value === 'Yes')) {
+              try {
+                const checkboxField = form.getCheckBox(fieldName);
+                if (checkboxField) {
+                  checkboxField.check();
+                  console.log(`✓ Checked checkbox ${fieldName}`);
+                  fieldSet = true;
+                }
+              } catch (e) {
+                // Not a checkbox, continue
+              }
+            }
+
+            // Method 3: If not set yet, try generic field approach
+            if (!fieldSet) {
+              try {
+                const field = form.getField(fieldName);
+                if (field && value !== undefined && value !== null) {
+                  if (field.setText) {
+                    field.setText(value.toString());
+                    console.log(`✓ Set field ${fieldName} via generic method to: ${value}`);
+                    fieldSet = true;
+                  }
+                }
+              } catch (e) {
+                // Continue to next method
+              }
+            }
+
+            if (!fieldSet) {
+              console.log(`✗ Could not set field ${fieldName} - field might be readonly or wrong type`);
+            }
+          } catch (fieldError) {
+            console.log(`✗ Error with field ${fieldName}:`, fieldError.message);
+          }
+        }
       } else if (documentData.document.document_type === 'charge-slip' || documentData.document.id === 'charge-slip') {
         // Fill Charge Slip specific fields
         const chargeSlipFields = {
