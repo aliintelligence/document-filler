@@ -80,12 +80,21 @@ module.exports = async function handler(req, res) {
 
     // Add signature fields based on document type and language
     console.log('Step 2: Adding signature fields...');
-    await addSignatureField(apiUrl, apiKey, documentId, documentData.documentType, documentData.language);
+    const fieldsAdded = await addSignatureField(apiUrl, apiKey, documentId, documentData.documentType, documentData.language);
+
+    if (!fieldsAdded) {
+      console.log('Warning: Fields may not have been added correctly, but continuing with invite...');
+    }
 
     // Create invite
-    console.log('Step 3: Creating invite for signature...');
+    console.log('Step 3: Creating field invite for signature...');
     const inviteResponse = await createInvite(apiUrl, apiKey, documentId, customerData);
     console.log('Invite response:', inviteResponse);
+
+    if (!inviteResponse.success) {
+      console.error('Invite creation failed:', inviteResponse.error);
+      throw new Error(`Failed to create invite: ${inviteResponse.error}`);
+    }
 
     // Save to database
     const dbDocument = await saveToDatabase(customerData, documentData, documentId, inviteResponse.signing_url);
@@ -101,9 +110,12 @@ module.exports = async function handler(req, res) {
     console.error('SignNow upload error:', error.message);
     console.error('Error details:', error.response?.data);
 
-    // Fallback to mock response
-    const { customerData, documentData } = req.body;
-    return mockResponse(customerData, documentData, res);
+    // Return actual error instead of fallback to mock
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+      details: error.response?.data
+    });
   }
 }
 
@@ -289,12 +301,13 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
     }
 
     console.log('Signature field added successfully');
+    return true;
   } catch (error) {
     console.error('Error adding signature field:', error.message);
     console.error('Error status:', error.response?.status);
     console.error('Error data:', JSON.stringify(error.response?.data, null, 2));
-    // Throw the error so we can see what's happening
-    throw error;
+    // Don't throw - let invite continue even if fields fail
+    return false;
   }
 }
 
@@ -362,8 +375,13 @@ async function createInvite(apiUrl, apiKey, documentId, customerData) {
     console.error('Error creating invite:', error.message);
     console.error('Invite error status:', error.response?.status);
     console.error('Invite error data:', JSON.stringify(error.response?.data, null, 2));
-    // Throw error to see what's happening
-    throw error;
+
+    // Return error details but don't throw
+    return {
+      success: false,
+      signing_url: `https://app.signnow.com/document/${documentId}`,
+      error: error.message
+    };
   }
 }
 
