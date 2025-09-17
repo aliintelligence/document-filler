@@ -23,7 +23,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    console.log('=== STEP 1: SignNow upload function called ===');
+    console.log('=== SIGNNOW UPLOAD STARTED ===');
     console.log('Environment check:', {
       hasApiKey: !!process.env.SIGNNOW_API_KEY,
       apiKeyLength: process.env.SIGNNOW_API_KEY?.length,
@@ -34,7 +34,11 @@ module.exports = async function handler(req, res) {
     const { pdfBlob, customerData, documentData } = req.body;
 
     if (!pdfBlob || !customerData || !documentData) {
-      console.log('Missing required data:', { pdfBlob: !!pdfBlob, customerData: !!customerData, documentData: !!documentData });
+      console.error('Missing required data:', {
+        pdfBlob: !!pdfBlob,
+        customerData: !!customerData,
+        documentData: !!documentData
+      });
       return res.status(400).json({ error: 'Missing required data' });
     }
 
@@ -47,87 +51,41 @@ module.exports = async function handler(req, res) {
       return mockResponse(customerData, documentData, res);
     }
 
-    console.log('=== STEP 2: Processing SignNow upload ===');
+    console.log('=== STEP 1: UPLOAD DOCUMENT ===');
     console.log('Customer:', customerData.lastName);
     console.log('Document type:', documentData.documentType);
     console.log('Language:', documentData.language);
 
-    // Convert base64 PDF to buffer
-    console.log('=== STEP 3: Converting PDF blob to buffer ===');
-    const pdfBuffer = Buffer.from(pdfBlob.replace(/^data:application\/pdf;base64,/, ''), 'base64');
-    console.log('PDF buffer size:', pdfBuffer.length, 'bytes');
+    // Step 1: Upload document
+    const documentId = await uploadDocument(apiUrl, apiKey, pdfBlob, customerData, documentData);
+    console.log('Document uploaded with ID:', documentId);
 
-    // Create FormData
-    const FormData = require('form-data');
-    const form = new FormData();
+    // Step 2: Add signature fields
+    console.log('=== STEP 2: ADD SIGNATURE FIELDS ===');
+    const fieldsAdded = await addSignatureFields(apiUrl, apiKey, documentId, documentData.documentType, documentData.language);
+    console.log('Fields added:', fieldsAdded);
 
-    const lastName = customerData.lastName || 'Customer';
-    const fileName = `${lastName}_${documentData.documentType}_${Date.now()}.pdf`;
-    form.append('file', pdfBuffer, {
-      filename: fileName,
-      contentType: 'application/pdf'
-    });
+    // Step 3: Create invite
+    console.log('=== STEP 3: CREATE INVITE ===');
+    const inviteResult = await createInvite(apiUrl, apiKey, documentId, customerData);
+    console.log('Invite result:', inviteResult);
 
-    // Upload document to SignNow
-    console.log('=== STEP 4: Uploading to SignNow ===');
-    console.log('API URL:', apiUrl);
-    console.log('Using API key length:', apiKey.length);
+    // Step 4: Save to database
+    console.log('=== STEP 4: SAVE TO DATABASE ===');
+    const dbDocument = await saveToDatabase(customerData, documentData, documentId, inviteResult.signing_url);
 
-    const uploadResponse = await axios.post(
-      `${apiUrl}/document`,
-      form,
-      {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          ...form.getHeaders()
-        }
-      }
-    );
-
-    const documentId = uploadResponse.data.id;
-    console.log('=== STEP 4 SUCCESS: Document uploaded ===');
-    console.log('Document ID:', documentId);
-    console.log('Upload response status:', uploadResponse.status);
-
-    // Add signature fields based on document type and language
-    console.log('=== STEP 5: Adding signature fields ===');
-    const fieldsAdded = await addSignatureField(apiUrl, apiKey, documentId, documentData.documentType, documentData.language);
-
-    console.log('=== STEP 5 RESULT: Fields added result ===');
-    console.log('Fields added successfully:', fieldsAdded);
-
-    if (!fieldsAdded) {
-      console.error('=== STEP 5 WARNING: Fields may not have been added correctly ===');
-      console.log('Continuing with invite anyway...');
-    }
-
-    // Create invite
-    console.log('=== STEP 6: Creating invite for signature ===');
-    const inviteResponse = await createInvite(apiUrl, apiKey, documentId, customerData);
-    console.log('=== STEP 6 RESULT: Invite response ===');
-    console.log('Invite response:', JSON.stringify(inviteResponse, null, 2));
-
-
-    // Save to database
-    const dbDocument = await saveToDatabase(customerData, documentData, documentId, inviteResponse.signing_url);
-
-    console.log('Final response being sent:', {
-      success: true,
-      documentId: documentId,
-      signatureUrl: inviteResponse.signing_url,
-      inviteSuccess: inviteResponse.success
-    });
-
+    console.log('=== SUCCESS: Complete workflow finished ===');
     res.status(200).json({
       success: true,
       documentId: documentId,
-      signatureUrl: inviteResponse.signing_url,
+      signatureUrl: inviteResult.signing_url,
       dbDocument: dbDocument
     });
 
   } catch (error) {
-    console.error('SignNow upload error:', error.message);
-    console.error('Error details:', error.response?.data);
+    console.error('=== ERROR: SignNow workflow failed ===');
+    console.error('Error:', error.message);
+    console.error('Stack:', error.stack);
 
     // Fallback to mock response
     const { customerData, documentData } = req.body;
@@ -135,187 +93,138 @@ module.exports = async function handler(req, res) {
   }
 }
 
-async function addSignatureField(apiUrl, apiKey, documentId, documentType, language) {
-  try {
-    console.log('=== STEP 5A: Starting signature field addition ===');
-    console.log(`Adding signature fields for ${documentType} in ${language}`);
-    console.log('Function parameters:', { documentType, language, documentId });
+// Step 1: Upload document to SignNow
+async function uploadDocument(apiUrl, apiKey, pdfBlob, customerData, documentData) {
+  console.log('=== UPLOAD: Converting PDF blob ===');
 
-    // Define signature field configurations
-    const signatureConfigs = {
-      // HD Contracts English - 3 signatures (pages 1, 2, and 13 in 0-based indexing)
-      'hd-docs_english': {
-        fields: [
-          {
-            x: 149,
-            y: 645,
-            width: 340,
-            height: 14,
-            page_number: 0,
-            role: 'Signer 1',
-            required: true,
-            type: 'signature'
-          },
-          {
-            x: 43,
-            y: 569,
-            width: 433,
-            height: 14,
-            page_number: 1,
-            role: 'Signer 1',
-            required: true,
-            type: 'signature'
-          },
-          {
-            x: 305,
-            y: 650,
-            width: 200,
-            height: 20,
-            page_number: 12,
-            role: 'Signer 1',
-            required: true,
-            type: 'signature'
-          }
-        ]
-      },
-      // HD Contracts Spanish - 3 signatures (pages 1, 2, and 13 in 0-based indexing)
-      'hd-docs_spanish': {
-        fields: [
-          {
-            x: 149,
-            y: 682,
-            width: 340,
-            height: 14,
-            page_number: 0,
-            role: 'Signer 1',
-            required: true,
-            type: 'signature'
-          },
-          {
-            x: 43,
-            y: 592,
-            width: 433,
-            height: 14,
-            page_number: 1,
-            role: 'Signer 1',
-            required: true,
-            type: 'signature'
-          },
-          {
-            x: 265,
-            y: 688,
-            width: 226,
-            height: 14,
-            page_number: 12,
-            role: 'Signer 1',
-            required: true,
-            type: 'signature'
-          }
-        ]
-      },
-      // Charge slips - 1 signature
-      'charge-slip_english': {
-        fields: [
-          {
-            x: 20,
-            y: 447,
-            width: 180,
-            height: 24,
-            page_number: 0,
-            role: 'Signer 1',
-            required: true,
-            type: 'signature'
-          }
-        ]
-      },
-      'charge-slip_spanish': {
-        fields: [
-          {
-            x: 20,
-            y: 447,
-            width: 180,
-            height: 24,
-            page_number: 0,
-            role: 'Signer 1',
-            required: true,
-            type: 'signature'
-          }
-        ]
+  // Convert base64 PDF to buffer
+  const pdfBuffer = Buffer.from(pdfBlob.replace(/^data:application\/pdf;base64,/, ''), 'base64');
+  console.log('PDF buffer size:', pdfBuffer.length, 'bytes');
+
+  // Create FormData
+  const FormData = require('form-data');
+  const form = new FormData();
+
+  const lastName = customerData.lastName || 'Customer';
+  const fileName = `${lastName}_${documentData.documentType}_${Date.now()}.pdf`;
+
+  form.append('file', pdfBuffer, {
+    filename: fileName,
+    contentType: 'application/pdf'
+  });
+
+  console.log('=== UPLOAD: Sending to SignNow ===');
+  console.log('Filename:', fileName);
+  console.log('API URL:', `${apiUrl}/document`);
+
+  const uploadResponse = await axios.post(
+    `${apiUrl}/document`,
+    form,
+    {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        ...form.getHeaders()
       }
-    };
-
-    // Get the configuration key
-    const configKey = `${documentType}_${language}`;
-    console.log('=== STEP 5B: Looking up field configuration ===');
-    console.log('Config key:', configKey);
-    console.log('Available configs:', Object.keys(signatureConfigs));
-
-    let fieldData = signatureConfigs[configKey];
-
-    if (!fieldData) {
-      console.log('=== STEP 5C: No specific config found, using default ===');
-      console.log(`No signature configuration found for ${configKey}, using default`);
-      // Default single signature
-      fieldData = {
-        fields: [
-          {
-            type: 'signature',
-            x: 150,
-            y: 100,
-            width: 250,
-            height: 60,
-            page_number: 0,
-            role: 'Signer 1',
-            required: true
-          }
-        ]
-      };
     }
+  );
 
-    console.log('=== STEP 5D: Preparing to add fields ===');
-    console.log(`Adding ${fieldData.fields.length} signature fields for ${configKey}`);
-    console.log('Field configuration:', JSON.stringify(fieldData, null, 2));
+  console.log('=== UPLOAD SUCCESS ===');
+  console.log('Response status:', uploadResponse.status);
+  console.log('Document ID:', uploadResponse.data.id);
 
-    // For HD documents with multiple fields, add them one by one
-    if (fieldData.fields.length > 1) {
-      console.log('=== STEP 5E: Multiple fields detected, adding one by one ===');
-      console.log('Multiple fields detected, adding one by one...');
+  return uploadResponse.data.id;
+}
 
-      for (let i = 0; i < fieldData.fields.length; i++) {
-        const singleFieldData = {
-          fields: [fieldData.fields[i]]
-        };
+// Step 2: Add signature fields
+async function addSignatureFields(apiUrl, apiKey, documentId, documentType, language) {
+  console.log('=== FIELDS: Starting field addition ===');
+  console.log('Document type:', documentType);
+  console.log('Language:', language);
 
-        console.log(`=== STEP 5E.${i + 1}: Adding field ${i + 1}/${fieldData.fields.length} ===`);
-        console.log(`Adding field ${i + 1}/${fieldData.fields.length}:`, JSON.stringify(singleFieldData, null, 2));
-
-        try {
-          const response = await axios.put(
-            `${apiUrl}/document/${documentId}`,
-            singleFieldData,
-            {
-              headers: {
-                'Authorization': `Bearer ${apiKey}`,
-                'Content-Type': 'application/json'
-              }
-            }
-          );
-          console.log(`=== STEP 5E.${i + 1} SUCCESS: Field added ===`);
-          console.log(`Field ${i + 1} response status:`, response.status);
-          console.log(`Field ${i + 1} response data:`, JSON.stringify(response.data, null, 2));
-        } catch (fieldError) {
-          console.error(`=== STEP 5E.${i + 1} ERROR: Field addition failed ===`);
-          console.error(`Error adding field ${i + 1}:`, fieldError.message);
-          console.error(`Field ${i + 1} error status:`, fieldError.response?.status);
-          console.error(`Field ${i + 1} error data:`, JSON.stringify(fieldError.response?.data, null, 2));
-        }
+  // Define signature field configurations
+  const signatureConfigs = {
+    // HD Contracts English - 3 signatures
+    'hd-docs_english': [
+      {
+        type: 'signature',
+        x: 149, y: 645, width: 340, height: 14,
+        page_number: 0, role: 'Signer 1', required: true
+      },
+      {
+        type: 'signature',
+        x: 43, y: 569, width: 433, height: 14,
+        page_number: 1, role: 'Signer 1', required: true
+      },
+      {
+        type: 'signature',
+        x: 305, y: 650, width: 200, height: 20,
+        page_number: 12, role: 'Signer 1', required: true
       }
-    } else {
-      // Single field, add normally
-      console.log('=== STEP 5F: Adding single field ===');
+    ],
+    // HD Contracts Spanish - 3 signatures
+    'hd-docs_spanish': [
+      {
+        type: 'signature',
+        x: 149, y: 682, width: 340, height: 14,
+        page_number: 0, role: 'Signer 1', required: true
+      },
+      {
+        type: 'signature',
+        x: 43, y: 592, width: 433, height: 14,
+        page_number: 1, role: 'Signer 1', required: true
+      },
+      {
+        type: 'signature',
+        x: 265, y: 688, width: 226, height: 14,
+        page_number: 12, role: 'Signer 1', required: true
+      }
+    ],
+    // Charge slips - 1 signature
+    'charge-slip_english': [
+      {
+        type: 'signature',
+        x: 20, y: 447, width: 180, height: 24,
+        page_number: 0, role: 'Signer 1', required: true
+      }
+    ],
+    'charge-slip_spanish': [
+      {
+        type: 'signature',
+        x: 20, y: 447, width: 180, height: 24,
+        page_number: 0, role: 'Signer 1', required: true
+      }
+    ]
+  };
+
+  const configKey = `${documentType}_${language}`;
+  console.log('Config key:', configKey);
+  console.log('Available configs:', Object.keys(signatureConfigs));
+
+  let fields = signatureConfigs[configKey];
+
+  if (!fields) {
+    console.log('No specific config found, using default single field');
+    fields = [{
+      type: 'signature',
+      x: 150, y: 100, width: 250, height: 60,
+      page_number: 0, role: 'Signer 1', required: true
+    }];
+  }
+
+  console.log('=== FIELDS: Adding', fields.length, 'signature fields ===');
+
+  // Add each field individually for better error handling
+  for (let i = 0; i < fields.length; i++) {
+    const field = fields[i];
+    console.log(`=== FIELD ${i + 1}/${fields.length}: Adding field ===`);
+    console.log('Field config:', field);
+
+    try {
+      const fieldPayload = { fields: [field] };
+
       const response = await axios.put(
         `${apiUrl}/document/${documentId}`,
-        fieldData,
+        fieldPayload,
         {
           headers: {
             'Authorization': `Bearer ${apiKey}`,
@@ -324,162 +233,100 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
         }
       );
 
-      console.log('=== STEP 5F SUCCESS: Single field added ===');
-      console.log('SignNow field response status:', response.status);
-      console.log('SignNow field response data:', JSON.stringify(response.data, null, 2));
+      console.log(`=== FIELD ${i + 1} SUCCESS ===`);
+      console.log('Response status:', response.status);
+    } catch (fieldError) {
+      console.error(`=== FIELD ${i + 1} ERROR ===`);
+      console.error('Error:', fieldError.message);
+      console.error('Status:', fieldError.response?.status);
+      console.error('Data:', fieldError.response?.data);
+      // Continue with other fields even if one fails
     }
-
-    console.log('=== STEP 5 COMPLETE: All signature fields processed ===');
-    console.log('Signature field added successfully');
-    return true;
-  } catch (error) {
-    console.error('Error adding signature field:', error.message);
-    console.error('Error status:', error.response?.status);
-    console.error('Error data:', JSON.stringify(error.response?.data, null, 2));
-    // Don't throw - let invite continue even if fields fail
-    return false;
   }
+
+  console.log('=== FIELDS COMPLETE ===');
+  return true;
 }
 
-async function getDocumentRoles(apiUrl, apiKey, documentId) {
-  try {
-    console.log('Getting document roles for:', documentId);
-
-    const response = await axios.get(
-      `${apiUrl}/document/${documentId}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`
-        }
-      }
-    );
-
-    const document = response.data;
-    console.log('Document roles response:', JSON.stringify({
-      roles: document.roles || [],
-      viewer_roles: document.viewer_roles || [],
-      approver_roles: document.approver_roles || []
-    }, null, 2));
-
-    return document.roles || [];
-  } catch (error) {
-    console.error('Error getting document roles:', error.message);
-    console.error('Roles error status:', error.response?.status);
-    console.error('Roles error data:', JSON.stringify(error.response?.data, null, 2));
-    return [];
-  }
-}
-
+// Step 3: Create invite for signature
 async function createInvite(apiUrl, apiKey, documentId, customerData) {
-  let inviteData;
-  try {
-    console.log('=== STEP 6A: Starting invite creation ===');
-    console.log('Invite parameters:', { documentId, customerEmail: customerData.email });
-    console.log('Customer data for invite:', JSON.stringify(customerData, null, 2));
-    inviteData = {
-      to: [{
-        email: customerData.email,
-        role: 'Signer 1',
-        order: 1,
-        expiration_days: 30,
-        subject: 'Document Ready for Signature',
-        message: `Hello ${customerData.firstName} ${customerData.lastName},\n\nYour document is ready for electronic signature. Please review and sign at your convenience.\n\nThank you!`,
-        reminder: {
-          remind_after: 3,
-          remind_repeat: 7
-        }
-      }],
-      from: process.env.SENDER_EMAIL || 'noreply@miamiwaterandair.com',
-      cc: []
-    };
+  console.log('=== INVITE: Creating invitation ===');
+  console.log('Document ID:', documentId);
+  console.log('Customer email:', customerData.email);
 
-    console.log('=== STEP 6B: Prepared invite data ===');
-    console.log('Invite payload:', JSON.stringify(inviteData, null, 2));
-    console.log('API URL for invite:', `${apiUrl}/document/${documentId}/invite`);
-
-    console.log('=== STEP 6C: Sending invite request to SignNow ===');
-    const response = await axios.post(
-      `${apiUrl}/document/${documentId}/invite`,
-      inviteData,
-      {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        }
+  const invitePayload = {
+    to: [{
+      email: customerData.email,
+      role: 'Signer 1',
+      order: 1,
+      expiration_days: 30,
+      subject: 'Document Ready for Signature',
+      message: `Hello ${customerData.firstName} ${customerData.lastName},\n\nYour document is ready for electronic signature. Please review and sign at your convenience.\n\nThank you!`,
+      reminder: {
+        remind_after: 3,
+        remind_repeat: 7
       }
-    );
+    }],
+    from: process.env.SENDER_EMAIL || 'noreply@miamiwaterandair.com',
+    cc: []
+  };
 
-    console.log('=== STEP 6C SUCCESS: Invite request completed ===');
-    console.log('Invite response status:', response.status);
-    console.log('Invite created successfully - SignNow will send email to:', customerData.email);
-    console.log('Invite response data:', JSON.stringify(response.data, null, 2));
+  console.log('=== INVITE: Sending invitation ===');
+  console.log('Invite payload:', JSON.stringify(invitePayload, null, 2));
 
-    let signingUrl = `https://app.signnow.com/document/${documentId}`;
-
-    if (response.data && response.data.id) {
-      console.log('=== STEP 6D: Attempting to get signing link ===');
-      console.log('Invite ID from response:', response.data.id);
-      try {
-        const linkResponse = await axios.get(
-          `${apiUrl}/document/${documentId}/invite/${response.data.id}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${apiKey}`
-            }
-          }
-        );
-
-        console.log('=== STEP 6D: Link response received ===');
-        console.log('Link response status:', linkResponse.status);
-        console.log('Link response data:', JSON.stringify(linkResponse.data, null, 2));
-
-        if (linkResponse.data && linkResponse.data.signing_link) {
-          signingUrl = linkResponse.data.signing_link;
-          console.log('=== STEP 6D SUCCESS: Got signing link ===');
-          console.log('Got signing link:', signingUrl);
-        } else {
-          console.log('=== STEP 6D WARNING: No signing link in response ===');
-          console.log('No signing link in response, using default URL');
-        }
-      } catch (linkError) {
-        console.error('=== STEP 6D ERROR: Could not get signing link ===');
-        console.error('Link error:', linkError.message);
-        console.error('Link error status:', linkError.response?.status);
-        console.error('Link error data:', JSON.stringify(linkError.response?.data, null, 2));
-        console.log('Could not get signing link, using default URL');
+  const response = await axios.post(
+    `${apiUrl}/document/${documentId}/invite`,
+    invitePayload,
+    {
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
       }
     }
+  );
 
-    console.log('=== STEP 6 COMPLETE: Invite creation successful ===');
-    console.log('Final invite result:', {
-      success: true,
-      invite_id: response.data.id,
-      signing_url: signingUrl
-    });
+  console.log('=== INVITE SUCCESS ===');
+  console.log('Response status:', response.status);
+  console.log('Response data:', JSON.stringify(response.data, null, 2));
 
-    return {
-      success: true,
-      invite_id: response.data.id,
-      signing_url: signingUrl
-    };
+  let signingUrl = `https://app.signnow.com/document/${documentId}`;
 
-  } catch (error) {
-    console.error('=== STEP 6 ERROR: Invite creation failed ===');
-    console.error('Error creating invite:', error.message);
-    console.error('Invite error status:', error.response?.status);
-    console.error('Invite error data:', JSON.stringify(error.response?.data, null, 2));
-    console.error('Invite payload that failed:', JSON.stringify(inviteData, null, 2));
-    return {
-      success: false,
-      signing_url: `https://app.signnow.com/document/${documentId}`,
-      error: error.message
-    };
+  // Try to get specific signing link
+  if (response.data && response.data.id) {
+    try {
+      console.log('=== INVITE: Getting signing link ===');
+      const linkResponse = await axios.get(
+        `${apiUrl}/document/${documentId}/invite/${response.data.id}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${apiKey}`
+          }
+        }
+      );
+
+      if (linkResponse.data && linkResponse.data.signing_link) {
+        signingUrl = linkResponse.data.signing_link;
+        console.log('=== INVITE: Got specific signing link ===');
+        console.log('Signing URL:', signingUrl);
+      }
+    } catch (linkError) {
+      console.log('=== INVITE: Could not get specific link, using default ===');
+      console.log('Link error:', linkError.message);
+    }
   }
+
+  return {
+    success: true,
+    invite_id: response.data.id,
+    signing_url: signingUrl
+  };
 }
 
+// Step 4: Save to database
 async function saveToDatabase(customerData, documentData, documentId, signingUrl) {
+  console.log('=== DATABASE: Saving document record ===');
+
   try {
-    // Determine delivery method and phone number
     const deliveryMethod = documentData.deliveryMethod || 'email';
     const smsNumber = documentData.smsNumber || customerData.phone;
 
@@ -496,7 +343,7 @@ async function saveToDatabase(customerData, documentData, documentId, signingUrl
       additional_fields: documentData.additionalFields || {}
     };
 
-    // Set delivery timestamps based on method
+    // Set delivery timestamps
     if (deliveryMethod === 'email' || deliveryMethod === 'both') {
       documentRecord.email_sent_at = new Date().toISOString();
     }
@@ -511,22 +358,28 @@ async function saveToDatabase(customerData, documentData, documentId, signingUrl
       .single();
 
     if (error) {
-      console.error('Database error:', error);
+      console.error('=== DATABASE ERROR ===');
+      console.error('Error:', error);
       throw error;
     }
 
+    console.log('=== DATABASE SUCCESS ===');
+    console.log('Document saved with ID:', data.id);
     return data;
+
   } catch (error) {
-    console.error('Error saving to database:', error);
+    console.error('=== DATABASE: Error saving ===');
+    console.error('Error:', error);
     return null;
   }
 }
 
+// Mock response for testing
 async function mockResponse(customerData, documentData, res) {
   const mockDocumentId = 'MOCK-DOC-' + Date.now();
   const mockSignatureUrl = `https://app.signnow.com/document/${mockDocumentId}`;
 
-  console.log('Using mock SignNow response');
+  console.log('=== MOCK: Using mock response ===');
 
   try {
     const dbDocument = await saveToDatabase(customerData, documentData, mockDocumentId, mockSignatureUrl);

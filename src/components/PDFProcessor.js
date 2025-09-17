@@ -92,11 +92,14 @@ ${documentData.customerData.notes}`;
         const today = new Date().toLocaleDateString('en-US');
         const dateFields = [
           'txtTransactionDate',
+          'txtServiceProviderDate',
           'txtServiceProviderDateHS106',
           'txtCustomerSignatureDate',
           'txtServiceProviderSignatureDate',
           'txtApproximateStartDateHS106',
-          'txtApproximateFinishDateHS106'
+          'txtApproximateFinishDateHS106',
+          'txtContractDate',
+          'txtDate'
         ];
 
         dateFields.forEach(field => {
@@ -109,8 +112,19 @@ ${documentData.customerData.notes}`;
         hdFieldsMap['txtNotLaterThanMidnightOfDate'] = futureDate.toLocaleDateString('en-US');
 
         // Fill all HD Docs fields
+        console.log('=== HD DOCS: Starting field filling ===');
+        console.log('Available form fields:', fields.map(f => f.getName()));
+
         for (const [fieldName, value] of Object.entries(hdFieldsMap)) {
           try {
+            // Check if field exists in the form first
+            const fieldExists = fields.some(f => f.getName() === fieldName);
+
+            if (!fieldExists) {
+              console.log(`Field ${fieldName} does not exist in PDF, skipping...`);
+              continue;
+            }
+
             // Try multiple methods to set the field value
             let fieldSet = false;
 
@@ -119,7 +133,7 @@ ${documentData.customerData.notes}`;
               const textField = form.getTextField(fieldName);
               if (textField && value !== undefined && value !== null) {
                 textField.setText(value.toString());
-                console.log(`Set field ${fieldName} to: ${value}`);
+                console.log(`✓ Set field ${fieldName} to: ${value}`);
                 fieldSet = true;
               }
             } catch (e) {
@@ -132,9 +146,11 @@ ${documentData.customerData.notes}`;
                 const field = form.getField(fieldName);
                 if (field && value !== undefined && value !== null) {
                   // Try to cast to text field
-                  field.setText && field.setText(value.toString());
-                  console.log(`Set field ${fieldName} via generic method to: ${value}`);
-                  fieldSet = true;
+                  if (field.setText) {
+                    field.setText(value.toString());
+                    console.log(`✓ Set field ${fieldName} via generic method to: ${value}`);
+                    fieldSet = true;
+                  }
                 }
               } catch (e) {
                 // Continue to next method
@@ -142,10 +158,10 @@ ${documentData.customerData.notes}`;
             }
 
             if (!fieldSet) {
-              console.log(`Could not set field ${fieldName} - field might not exist or be readonly`);
+              console.log(`✗ Could not set field ${fieldName} - field might be readonly or wrong type`);
             }
           } catch (fieldError) {
-            console.log(`Error with field ${fieldName}:`, fieldError.message);
+            console.log(`✗ Error with field ${fieldName}:`, fieldError.message);
           }
         }
       } else if (documentData.document.document_type === 'charge-slip' || documentData.document.id === 'charge-slip') {
