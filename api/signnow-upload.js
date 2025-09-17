@@ -450,11 +450,12 @@ async function sendSMSInvite(apiUrl, apiKey, documentId, phoneNumber) {
   try {
     const smsPayload = {
       to: [{
-        phone_number: formattedPhone,
+        phone_invite: formattedPhone,
         role: 'Signer 1',
         order: 1,
         expiration_days: 30
-      }]
+      }],
+      from: 'matthewali@miamiwaterandair.com'
     };
 
     console.log('=== SMS: Sending SMS invitation ===');
