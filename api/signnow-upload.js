@@ -23,9 +23,10 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    console.log('SignNow upload function called');
+    console.log('=== STEP 1: SignNow upload function called ===');
     console.log('Environment check:', {
       hasApiKey: !!process.env.SIGNNOW_API_KEY,
+      apiKeyLength: process.env.SIGNNOW_API_KEY?.length,
       hasSupabaseUrl: !!process.env.SUPABASE_URL,
       hasSupabaseKey: !!process.env.SUPABASE_SERVICE_KEY
     });
@@ -46,10 +47,15 @@ module.exports = async function handler(req, res) {
       return mockResponse(customerData, documentData, res);
     }
 
-    console.log('Processing SignNow upload for customer:', customerData.lastName);
+    console.log('=== STEP 2: Processing SignNow upload ===');
+    console.log('Customer:', customerData.lastName);
+    console.log('Document type:', documentData.documentType);
+    console.log('Language:', documentData.language);
 
     // Convert base64 PDF to buffer
+    console.log('=== STEP 3: Converting PDF blob to buffer ===');
     const pdfBuffer = Buffer.from(pdfBlob.replace(/^data:application\/pdf;base64,/, ''), 'base64');
+    console.log('PDF buffer size:', pdfBuffer.length, 'bytes');
 
     // Create FormData
     const FormData = require('form-data');
@@ -63,7 +69,10 @@ module.exports = async function handler(req, res) {
     });
 
     // Upload document to SignNow
-    console.log('Uploading to SignNow...');
+    console.log('=== STEP 4: Uploading to SignNow ===');
+    console.log('API URL:', apiUrl);
+    console.log('Using API key length:', apiKey.length);
+
     const uploadResponse = await axios.post(
       `${apiUrl}/document`,
       form,
@@ -76,20 +85,27 @@ module.exports = async function handler(req, res) {
     );
 
     const documentId = uploadResponse.data.id;
-    console.log('Document uploaded, ID:', documentId);
+    console.log('=== STEP 4 SUCCESS: Document uploaded ===');
+    console.log('Document ID:', documentId);
+    console.log('Upload response status:', uploadResponse.status);
 
     // Add signature fields based on document type and language
-    console.log('Step 2: Adding signature fields...');
+    console.log('=== STEP 5: Adding signature fields ===');
     const fieldsAdded = await addSignatureField(apiUrl, apiKey, documentId, documentData.documentType, documentData.language);
 
+    console.log('=== STEP 5 RESULT: Fields added result ===');
+    console.log('Fields added successfully:', fieldsAdded);
+
     if (!fieldsAdded) {
-      console.log('Warning: Fields may not have been added correctly, but continuing with invite...');
+      console.error('=== STEP 5 WARNING: Fields may not have been added correctly ===');
+      console.log('Continuing with invite anyway...');
     }
 
     // Create invite
-    console.log('Step 3: Creating invite for signature...');
+    console.log('=== STEP 6: Creating invite for signature ===');
     const inviteResponse = await createInvite(apiUrl, apiKey, documentId, customerData);
-    console.log('Invite response:', inviteResponse);
+    console.log('=== STEP 6 RESULT: Invite response ===');
+    console.log('Invite response:', JSON.stringify(inviteResponse, null, 2));
 
 
     // Save to database
@@ -121,6 +137,7 @@ module.exports = async function handler(req, res) {
 
 async function addSignatureField(apiUrl, apiKey, documentId, documentType, language) {
   try {
+    console.log('=== STEP 5A: Starting signature field addition ===');
     console.log(`Adding signature fields for ${documentType} in ${language}`);
     console.log('Function parameters:', { documentType, language, documentId });
 
@@ -229,9 +246,14 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
 
     // Get the configuration key
     const configKey = `${documentType}_${language}`;
+    console.log('=== STEP 5B: Looking up field configuration ===');
+    console.log('Config key:', configKey);
+    console.log('Available configs:', Object.keys(signatureConfigs));
+
     let fieldData = signatureConfigs[configKey];
 
     if (!fieldData) {
+      console.log('=== STEP 5C: No specific config found, using default ===');
       console.log(`No signature configuration found for ${configKey}, using default`);
       // Default single signature
       fieldData = {
@@ -250,11 +272,13 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
       };
     }
 
+    console.log('=== STEP 5D: Preparing to add fields ===');
     console.log(`Adding ${fieldData.fields.length} signature fields for ${configKey}`);
     console.log('Field configuration:', JSON.stringify(fieldData, null, 2));
 
     // For HD documents with multiple fields, add them one by one
     if (fieldData.fields.length > 1) {
+      console.log('=== STEP 5E: Multiple fields detected, adding one by one ===');
       console.log('Multiple fields detected, adding one by one...');
 
       for (let i = 0; i < fieldData.fields.length; i++) {
@@ -262,6 +286,7 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
           fields: [fieldData.fields[i]]
         };
 
+        console.log(`=== STEP 5E.${i + 1}: Adding field ${i + 1}/${fieldData.fields.length} ===`);
         console.log(`Adding field ${i + 1}/${fieldData.fields.length}:`, JSON.stringify(singleFieldData, null, 2));
 
         try {
@@ -275,9 +300,11 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
               }
             }
           );
+          console.log(`=== STEP 5E.${i + 1} SUCCESS: Field added ===`);
           console.log(`Field ${i + 1} response status:`, response.status);
           console.log(`Field ${i + 1} response data:`, JSON.stringify(response.data, null, 2));
         } catch (fieldError) {
+          console.error(`=== STEP 5E.${i + 1} ERROR: Field addition failed ===`);
           console.error(`Error adding field ${i + 1}:`, fieldError.message);
           console.error(`Field ${i + 1} error status:`, fieldError.response?.status);
           console.error(`Field ${i + 1} error data:`, JSON.stringify(fieldError.response?.data, null, 2));
@@ -285,6 +312,7 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
       }
     } else {
       // Single field, add normally
+      console.log('=== STEP 5F: Adding single field ===');
       const response = await axios.put(
         `${apiUrl}/document/${documentId}`,
         fieldData,
@@ -296,10 +324,12 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
         }
       );
 
+      console.log('=== STEP 5F SUCCESS: Single field added ===');
       console.log('SignNow field response status:', response.status);
       console.log('SignNow field response data:', JSON.stringify(response.data, null, 2));
     }
 
+    console.log('=== STEP 5 COMPLETE: All signature fields processed ===');
     console.log('Signature field added successfully');
     return true;
   } catch (error) {
@@ -343,6 +373,9 @@ async function getDocumentRoles(apiUrl, apiKey, documentId) {
 async function createInvite(apiUrl, apiKey, documentId, customerData) {
   let inviteData;
   try {
+    console.log('=== STEP 6A: Starting invite creation ===');
+    console.log('Invite parameters:', { documentId, customerEmail: customerData.email });
+    console.log('Customer data for invite:', JSON.stringify(customerData, null, 2));
     inviteData = {
       to: [{
         email: customerData.email,
@@ -360,6 +393,11 @@ async function createInvite(apiUrl, apiKey, documentId, customerData) {
       cc: []
     };
 
+    console.log('=== STEP 6B: Prepared invite data ===');
+    console.log('Invite payload:', JSON.stringify(inviteData, null, 2));
+    console.log('API URL for invite:', `${apiUrl}/document/${documentId}/invite`);
+
+    console.log('=== STEP 6C: Sending invite request to SignNow ===');
     const response = await axios.post(
       `${apiUrl}/document/${documentId}/invite`,
       inviteData,
@@ -371,12 +409,16 @@ async function createInvite(apiUrl, apiKey, documentId, customerData) {
       }
     );
 
+    console.log('=== STEP 6C SUCCESS: Invite request completed ===');
+    console.log('Invite response status:', response.status);
     console.log('Invite created successfully - SignNow will send email to:', customerData.email);
     console.log('Invite response data:', JSON.stringify(response.data, null, 2));
 
     let signingUrl = `https://app.signnow.com/document/${documentId}`;
 
     if (response.data && response.data.id) {
+      console.log('=== STEP 6D: Attempting to get signing link ===');
+      console.log('Invite ID from response:', response.data.id);
       try {
         const linkResponse = await axios.get(
           `${apiUrl}/document/${documentId}/invite/${response.data.id}`,
@@ -387,16 +429,33 @@ async function createInvite(apiUrl, apiKey, documentId, customerData) {
           }
         );
 
+        console.log('=== STEP 6D: Link response received ===');
+        console.log('Link response status:', linkResponse.status);
+        console.log('Link response data:', JSON.stringify(linkResponse.data, null, 2));
+
         if (linkResponse.data && linkResponse.data.signing_link) {
           signingUrl = linkResponse.data.signing_link;
+          console.log('=== STEP 6D SUCCESS: Got signing link ===');
           console.log('Got signing link:', signingUrl);
         } else {
+          console.log('=== STEP 6D WARNING: No signing link in response ===');
           console.log('No signing link in response, using default URL');
         }
       } catch (linkError) {
+        console.error('=== STEP 6D ERROR: Could not get signing link ===');
+        console.error('Link error:', linkError.message);
+        console.error('Link error status:', linkError.response?.status);
+        console.error('Link error data:', JSON.stringify(linkError.response?.data, null, 2));
         console.log('Could not get signing link, using default URL');
       }
     }
+
+    console.log('=== STEP 6 COMPLETE: Invite creation successful ===');
+    console.log('Final invite result:', {
+      success: true,
+      invite_id: response.data.id,
+      signing_url: signingUrl
+    });
 
     return {
       success: true,
@@ -405,7 +464,11 @@ async function createInvite(apiUrl, apiKey, documentId, customerData) {
     };
 
   } catch (error) {
+    console.error('=== STEP 6 ERROR: Invite creation failed ===');
     console.error('Error creating invite:', error.message);
+    console.error('Invite error status:', error.response?.status);
+    console.error('Invite error data:', JSON.stringify(error.response?.data, null, 2));
+    console.error('Invite payload that failed:', JSON.stringify(inviteData, null, 2));
     return {
       success: false,
       signing_url: `https://app.signnow.com/document/${documentId}`,
