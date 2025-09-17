@@ -95,6 +95,13 @@ module.exports = async function handler(req, res) {
     // Save to database
     const dbDocument = await saveToDatabase(customerData, documentData, documentId, inviteResponse.signing_url);
 
+    console.log('Final response being sent:', {
+      success: true,
+      documentId: documentId,
+      signatureUrl: inviteResponse.signing_url,
+      inviteSuccess: inviteResponse.success
+    });
+
     res.status(200).json({
       success: true,
       documentId: documentId,
@@ -119,7 +126,7 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
 
     // Define signature field configurations
     const signatureConfigs = {
-      // HD Contracts English - Start with just first page for testing
+      // HD Contracts English - 3 signatures (pages 1, 2, and 13 in 0-based indexing)
       'hd-docs_english': {
         fields: [
           {
@@ -131,10 +138,30 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
             role: 'Signer 1',
             required: true,
             type: 'signature'
+          },
+          {
+            x: 43,
+            y: 569,
+            width: 433,
+            height: 14,
+            page_number: 1,
+            role: 'Signer 1',
+            required: true,
+            type: 'signature'
+          },
+          {
+            x: 305,
+            y: 650,
+            width: 200,
+            height: 20,
+            page_number: 12,
+            role: 'Signer 1',
+            required: true,
+            type: 'signature'
           }
         ]
       },
-      // HD Contracts Spanish - Start with just first page for testing
+      // HD Contracts Spanish - 3 signatures (pages 1, 2, and 13 in 0-based indexing)
       'hd-docs_spanish': {
         fields: [
           {
@@ -143,6 +170,26 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
             width: 340,
             height: 14,
             page_number: 0,
+            role: 'Signer 1',
+            required: true,
+            type: 'signature'
+          },
+          {
+            x: 43,
+            y: 592,
+            width: 433,
+            height: 14,
+            page_number: 1,
+            role: 'Signer 1',
+            required: true,
+            type: 'signature'
+          },
+          {
+            x: 265,
+            y: 688,
+            width: 226,
+            height: 14,
+            page_number: 12,
             role: 'Signer 1',
             required: true,
             type: 'signature'
@@ -326,6 +373,7 @@ async function createInvite(apiUrl, apiKey, documentId, customerData) {
     );
 
     console.log('Invite created successfully');
+    console.log('Invite response data:', JSON.stringify(response.data, null, 2));
 
     let signingUrl = `https://app.signnow.com/document/${documentId}`;
 
@@ -342,6 +390,9 @@ async function createInvite(apiUrl, apiKey, documentId, customerData) {
 
         if (linkResponse.data && linkResponse.data.signing_link) {
           signingUrl = linkResponse.data.signing_link;
+          console.log('Got signing link:', signingUrl);
+        } else {
+          console.log('No signing link in response, using default URL');
         }
       } catch (linkError) {
         console.log('Could not get signing link, using default URL');
