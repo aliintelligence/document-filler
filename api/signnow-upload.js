@@ -254,6 +254,7 @@ async function createInvite(apiUrl, apiKey, documentId, customerData) {
   console.log('Document ID:', documentId);
   console.log('Customer email:', customerData.email);
 
+  // Use simpler invite payload that matches SignNow API requirements
   const invitePayload = {
     to: [{
       email: customerData.email,
@@ -261,65 +262,116 @@ async function createInvite(apiUrl, apiKey, documentId, customerData) {
       order: 1,
       expiration_days: 30,
       subject: 'Document Ready for Signature',
-      message: `Hello ${customerData.firstName} ${customerData.lastName},\n\nYour document is ready for electronic signature. Please review and sign at your convenience.\n\nThank you!`,
-      reminder: {
-        remind_after: 3,
-        remind_repeat: 7
-      }
+      message: `Hello ${customerData.firstName} ${customerData.lastName},\n\nYour document is ready for electronic signature. Please review and sign at your convenience.\n\nThank you!`
     }],
-    from: process.env.SENDER_EMAIL || 'noreply@miamiwaterandair.com',
-    cc: []
+    from: process.env.SENDER_EMAIL || 'noreply@miamiwaterandair.com'
   };
 
   console.log('=== INVITE: Sending invitation ===');
   console.log('Invite payload:', JSON.stringify(invitePayload, null, 2));
 
-  const response = await axios.post(
-    `${apiUrl}/document/${documentId}/invite`,
-    invitePayload,
-    {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
+  try {
+    const response = await axios.post(
+      `${apiUrl}/document/${documentId}/invite`,
+      invitePayload,
+      {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    console.log('=== INVITE SUCCESS ===');
+    console.log('Response status:', response.status);
+    console.log('Response data:', JSON.stringify(response.data, null, 2));
+
+    let signingUrl = `https://app.signnow.com/document/${documentId}`;
+
+    // Try to get specific signing link
+    if (response.data && response.data.id) {
+      try {
+        console.log('=== INVITE: Getting signing link ===');
+        const linkResponse = await axios.get(
+          `${apiUrl}/document/${documentId}/invite/${response.data.id}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${apiKey}`
+            }
+          }
+        );
+
+        if (linkResponse.data && linkResponse.data.signing_link) {
+          signingUrl = linkResponse.data.signing_link;
+          console.log('=== INVITE: Got specific signing link ===');
+          console.log('Signing URL:', signingUrl);
+        }
+      } catch (linkError) {
+        console.log('=== INVITE: Could not get specific link, using default ===');
+        console.log('Link error:', linkError.message);
       }
     }
-  );
 
-  console.log('=== INVITE SUCCESS ===');
-  console.log('Response status:', response.status);
-  console.log('Response data:', JSON.stringify(response.data, null, 2));
+    return {
+      success: true,
+      invite_id: response.data.id,
+      signing_url: signingUrl
+    };
 
-  let signingUrl = `https://app.signnow.com/document/${documentId}`;
+  } catch (error) {
+    console.error('=== INVITE ERROR: Failed to create invite ===');
+    console.error('Error message:', error.message);
+    console.error('Error status:', error.response?.status);
+    console.error('Error data:', JSON.stringify(error.response?.data, null, 2));
+    console.error('Request payload that failed:', JSON.stringify(invitePayload, null, 2));
 
-  // Try to get specific signing link
-  if (response.data && response.data.id) {
+    // Try alternative invite method - freeform invite
+    console.log('=== INVITE: Trying freeform invite as fallback ===');
     try {
-      console.log('=== INVITE: Getting signing link ===');
-      const linkResponse = await axios.get(
-        `${apiUrl}/document/${documentId}/invite/${response.data.id}`,
+      const freeformPayload = {
+        emails: [customerData.email],
+        subject: 'Document Ready for Signature',
+        message: `Hello ${customerData.firstName} ${customerData.lastName},\n\nYour document is ready for electronic signature. Please review and sign at your convenience.\n\nThank you!`
+      };
+
+      console.log('Freeform payload:', JSON.stringify(freeformPayload, null, 2));
+
+      const freeformResponse = await axios.post(
+        `${apiUrl}/document/${documentId}/freeforminvite`,
+        freeformPayload,
         {
           headers: {
-            'Authorization': `Bearer ${apiKey}`
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
           }
         }
       );
 
-      if (linkResponse.data && linkResponse.data.signing_link) {
-        signingUrl = linkResponse.data.signing_link;
-        console.log('=== INVITE: Got specific signing link ===');
-        console.log('Signing URL:', signingUrl);
-      }
-    } catch (linkError) {
-      console.log('=== INVITE: Could not get specific link, using default ===');
-      console.log('Link error:', linkError.message);
+      console.log('=== FREEFORM INVITE SUCCESS ===');
+      console.log('Freeform response status:', freeformResponse.status);
+      console.log('Freeform response data:', JSON.stringify(freeformResponse.data, null, 2));
+
+      return {
+        success: true,
+        invite_id: freeformResponse.data.id || 'freeform',
+        signing_url: `https://app.signnow.com/document/${documentId}`,
+        method: 'freeform'
+      };
+
+    } catch (freeformError) {
+      console.error('=== FREEFORM INVITE ALSO FAILED ===');
+      console.error('Freeform error:', freeformError.message);
+      console.error('Freeform error status:', freeformError.response?.status);
+      console.error('Freeform error data:', JSON.stringify(freeformError.response?.data, null, 2));
+
+      // Return default URL if both methods fail
+      return {
+        success: false,
+        signing_url: `https://app.signnow.com/document/${documentId}`,
+        error: error.message
+      };
     }
   }
-
-  return {
-    success: true,
-    invite_id: response.data.id,
-    signing_url: signingUrl
-  };
 }
 
 // Step 4: Save to database
