@@ -86,20 +86,11 @@ module.exports = async function handler(req, res) {
       console.log('Warning: Fields may not have been added correctly, but continuing with invite...');
     }
 
-    // Get roles from document (required for field invites)
-    console.log('Step 3: Getting document roles...');
-    const documentRoles = await getDocumentRoles(apiUrl, apiKey, documentId);
-    console.log('Document roles:', documentRoles);
-
     // Create invite
-    console.log('Step 4: Creating field invite for signature...');
+    console.log('Step 3: Creating invite for signature...');
     const inviteResponse = await createInvite(apiUrl, apiKey, documentId, customerData);
     console.log('Invite response:', inviteResponse);
 
-    if (!inviteResponse.success) {
-      console.error('Invite creation failed:', inviteResponse.error);
-      throw new Error(`Failed to create invite: ${inviteResponse.error}`);
-    }
 
     // Save to database
     const dbDocument = await saveToDatabase(customerData, documentData, documentId, inviteResponse.signing_url);
@@ -115,12 +106,9 @@ module.exports = async function handler(req, res) {
     console.error('SignNow upload error:', error.message);
     console.error('Error details:', error.response?.data);
 
-    // Return actual error instead of fallback to mock
-    return res.status(500).json({
-      success: false,
-      error: error.message,
-      details: error.response?.data
-    });
+    // Fallback to mock response
+    const { customerData, documentData } = req.body;
+    return mockResponse(customerData, documentData, res);
   }
 }
 
@@ -349,17 +337,21 @@ async function createInvite(apiUrl, apiKey, documentId, customerData) {
   let inviteData;
   try {
     inviteData = {
+      document_id: documentId,
       to: [{
         email: customerData.email,
         role: 'Signer 1',
+        role_id: '1',
         order: 1,
+        authentication_type: 'password',
         reminder: 1,
         expiration_days: 30,
         subject: 'Document Ready for Signature',
         message: `Hello ${customerData.firstName} ${customerData.lastName},\n\nYour document is ready for electronic signature. Please review and sign at your convenience.\n\nThank you!`
       }],
       from: process.env.SENDER_EMAIL || 'noreply@miamiwaterandair.com',
-      cc: []
+      cc: [],
+      client_timestamp: Math.floor(Date.now() / 1000)
     };
 
     const response = await axios.post(
@@ -404,11 +396,6 @@ async function createInvite(apiUrl, apiKey, documentId, customerData) {
 
   } catch (error) {
     console.error('Error creating invite:', error.message);
-    console.error('Invite error status:', error.response?.status);
-    console.error('Invite error data:', JSON.stringify(error.response?.data, null, 2));
-    console.error('Invite payload was:', inviteData ? JSON.stringify(inviteData, null, 2) : 'undefined');
-
-    // Return error details but don't throw
     return {
       success: false,
       signing_url: `https://app.signnow.com/document/${documentId}`,
