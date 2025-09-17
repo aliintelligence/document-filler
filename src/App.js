@@ -16,6 +16,7 @@ function AppContent() {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [documentData, setDocumentData] = useState(null);
   const [completionResult, setCompletionResult] = useState(null);
+  const [customerListKey, setCustomerListKey] = useState(0);
 
   // Show loading while checking authentication
   if (loading) {
@@ -60,12 +61,16 @@ function AppContent() {
 
   const handleCustomerSaved = (customer) => {
     setSelectedCustomer(customer);
-    setCurrentStep('customerList');
+    setCurrentStep('document');
+    // Force refresh of customer list when we come back to it
+    setCustomerListKey(prev => prev + 1);
   };
 
   const handleBackToCustomerList = () => {
     setCurrentStep('customerList');
     setSelectedCustomer(null);
+    // Force refresh of customer list
+    setCustomerListKey(prev => prev + 1);
   };
 
   const handleDocumentSelect = (data) => {
@@ -83,6 +88,8 @@ function AppContent() {
     setSelectedCustomer(null);
     setDocumentData(null);
     setCompletionResult(null);
+    // Force refresh of customer list to show updated data
+    setCustomerListKey(prev => prev + 1);
   };
 
   const getStepName = () => {
@@ -123,7 +130,13 @@ function AppContent() {
               )}
               <button
                 className={`nav-btn ${currentStep !== 'admin' && currentStep !== 'dashboard' ? 'active' : ''}`}
-                onClick={() => setCurrentStep('customerList')}
+                onClick={() => {
+                  setCurrentStep('customerList');
+                  setSelectedCustomer(null);
+                  setDocumentData(null);
+                  setCompletionResult(null);
+                  setCustomerListKey(prev => prev + 1);
+                }}
               >
                 📄 Documents
               </button>
@@ -176,6 +189,7 @@ function AppContent() {
 
         {currentStep === 'customerList' && (
           <CustomerList
+            key={customerListKey}
             onSelectCustomer={handleSelectCustomer}
             onAddNewCustomer={handleAddNewCustomer}
           />
