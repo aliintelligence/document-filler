@@ -107,6 +107,7 @@ module.exports = async function handler(req, res) {
 async function addSignatureField(apiUrl, apiKey, documentId, documentType, language) {
   try {
     console.log(`Adding signature fields for ${documentType} in ${language}`);
+    console.log('Function parameters:', { documentType, language, documentId });
 
     // Define signature field configurations
     const signatureConfigs = {
@@ -243,6 +244,7 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
 
       for (let i = 0; i < fieldData.fields.length; i++) {
         const singleFieldData = {
+          client_timestamp: Math.floor(Date.now() / 1000),
           fields: [fieldData.fields[i]]
         };
 
@@ -269,9 +271,13 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
       }
     } else {
       // Single field, add normally
+      const singleFieldDataWithTimestamp = {
+        client_timestamp: Math.floor(Date.now() / 1000),
+        ...fieldData
+      };
       const response = await axios.put(
         `${apiUrl}/document/${documentId}`,
-        fieldData,
+        singleFieldDataWithTimestamp,
         {
           headers: {
             'Authorization': `Bearer ${apiKey}`,
