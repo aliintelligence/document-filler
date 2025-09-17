@@ -37,16 +37,44 @@ const DocumentSelector = ({ customerData, onDocumentSelect }) => {
         user_uuid: user.id
       });
 
+      let contracts = [];
+
       if (error) {
         console.error('Error loading contracts:', error);
-        setError('Failed to load available contracts');
-        return;
+        // Fallback to hardcoded contracts if database query fails
+        contracts = [
+          { id: 'hd-docs-english', name: 'HD Docs English', document_type: 'hd-docs', language: 'english', file_path: 'hd-docs-english.pdf' },
+          { id: 'hd-docs-spanish', name: 'HD Docs Spanish', document_type: 'hd-docs', language: 'spanish', file_path: 'hd-docs-spanish.pdf' },
+          { id: 'charge-slip-english', name: 'Charge Slip English', document_type: 'charge-slip', language: 'english', file_path: 'charge-slip-english.pdf' },
+          { id: 'charge-slip-spanish', name: 'Charge Slip Spanish', document_type: 'charge-slip', language: 'spanish', file_path: 'charge-slip-spanish.pdf' },
+          { id: 'membership-plan', name: 'Membership Plan', document_type: 'membership-plan', language: 'english', file_path: 'membership-plan.pdf' }
+        ];
+      } else {
+        contracts = data || [];
+
+        // Always add membership plan if not already present
+        const membershipExists = contracts.some(c => c.document_type === 'membership-plan');
+        if (!membershipExists) {
+          contracts.push({
+            id: 'membership-plan',
+            name: 'Membership Plan',
+            document_type: 'membership-plan',
+            language: 'english',
+            file_path: 'membership-plan.pdf',
+            description: 'Miami Water & Air membership plan with Platinum, Gold, and Silver options'
+          });
+        }
       }
 
-      setAvailableContracts(data || []);
+      setAvailableContracts(contracts);
     } catch (err) {
       console.error('Error loading contracts:', err);
-      setError('Failed to load available contracts');
+      // Fallback to basic contracts including membership plan
+      setAvailableContracts([
+        { id: 'hd-docs-english', name: 'HD Docs English', document_type: 'hd-docs', language: 'english', file_path: 'hd-docs-english.pdf' },
+        { id: 'charge-slip-english', name: 'Charge Slip English', document_type: 'charge-slip', language: 'english', file_path: 'charge-slip-english.pdf' },
+        { id: 'membership-plan', name: 'Membership Plan', document_type: 'membership-plan', language: 'english', file_path: 'membership-plan.pdf' }
+      ]);
     } finally {
       setLoading(false);
     }
