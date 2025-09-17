@@ -344,21 +344,20 @@ async function createInvite(apiUrl, apiKey, documentId, customerData) {
   let inviteData;
   try {
     inviteData = {
-      document_id: documentId,
       to: [{
         email: customerData.email,
         role: 'Signer 1',
-        role_id: '1',
         order: 1,
-        authentication_type: 'password',
-        reminder: 1,
         expiration_days: 30,
         subject: 'Document Ready for Signature',
-        message: `Hello ${customerData.firstName} ${customerData.lastName},\n\nYour document is ready for electronic signature. Please review and sign at your convenience.\n\nThank you!`
+        message: `Hello ${customerData.firstName} ${customerData.lastName},\n\nYour document is ready for electronic signature. Please review and sign at your convenience.\n\nThank you!`,
+        reminder: {
+          remind_after: 3,
+          remind_repeat: 7
+        }
       }],
       from: process.env.SENDER_EMAIL || 'noreply@miamiwaterandair.com',
-      cc: [],
-      client_timestamp: Math.floor(Date.now() / 1000)
+      cc: []
     };
 
     const response = await axios.post(
@@ -372,7 +371,7 @@ async function createInvite(apiUrl, apiKey, documentId, customerData) {
       }
     );
 
-    console.log('Invite created successfully');
+    console.log('Invite created successfully - SignNow will send email to:', customerData.email);
     console.log('Invite response data:', JSON.stringify(response.data, null, 2));
 
     let signingUrl = `https://app.signnow.com/document/${documentId}`;
