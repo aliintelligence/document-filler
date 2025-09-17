@@ -356,12 +356,19 @@ ${documentData.customerData.notes}`;
     setProcessing(true);
 
     try {
+      console.log('=== PDFProcessor: Sending to SignNow ===');
+      console.log('Full documentData:', JSON.stringify(data, null, 2));
+      console.log('deliveryMethod:', data.deliveryMethod);
+      console.log('smsNumber:', data.smsNumber);
+
       const result = await signNowService.uploadDocument(
         pdfBlob,
         data.customerData,
         {
           documentType: data.document.document_type,
           language: data.language,
+          deliveryMethod: data.deliveryMethod,
+          smsNumber: data.smsNumber,
           additionalFields: {
             salespersonName: data.customerData.salespersonName,
             authorizedRepresentative: data.customerData.authorizedRepresentative,

@@ -33,6 +33,12 @@ module.exports = async function handler(req, res) {
 
     const { pdfBlob, customerData, documentData } = req.body;
 
+    console.log('=== REQUEST DATA RECEIVED ===');
+    console.log('documentData:', JSON.stringify(documentData, null, 2));
+    console.log('customerData keys:', Object.keys(customerData || {}));
+    console.log('deliveryMethod from documentData:', documentData?.deliveryMethod);
+    console.log('smsNumber from documentData:', documentData?.smsNumber);
+
     if (!pdfBlob || !customerData || !documentData) {
       console.error('Missing required data:', {
         pdfBlob: !!pdfBlob,
@@ -288,10 +294,16 @@ async function createInvite(apiUrl, apiKey, documentId, customerData, documentDa
   console.log('=== INVITE: Creating invitation ===');
   console.log('Document ID:', documentId);
   console.log('Customer email:', customerData.email);
-  console.log('Delivery method:', documentData.deliveryMethod || 'email');
+  console.log('Raw documentData.deliveryMethod:', documentData.deliveryMethod);
+  console.log('Raw documentData.smsNumber:', documentData.smsNumber);
+  console.log('Raw customerData.phone:', customerData.phone);
 
   const deliveryMethod = documentData.deliveryMethod || 'email';
   const smsNumber = documentData.smsNumber || customerData.phone;
+
+  console.log('=== FINAL DELIVERY SETTINGS ===');
+  console.log('Final delivery method:', deliveryMethod);
+  console.log('Final SMS number:', smsNumber);
 
   let emailResult = null;
   let smsResult = null;
