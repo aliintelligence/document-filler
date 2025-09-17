@@ -88,7 +88,7 @@ const DocumentSelector = ({ customerData, onDocumentSelect }) => {
           documentType: selectedDocument.document_type,
           language: selectedLanguage,
           deliveryMethod: deliveryMethod,
-          smsNumber: deliveryMethod === 'sms' || deliveryMethod === 'both' ? smsNumber : null,
+          smsNumber: deliveryMethod === 'sms' ? smsNumber : null,
           additionalFields: additionalData
         }
       });
@@ -273,21 +273,9 @@ const DocumentSelector = ({ customerData, onDocumentSelect }) => {
                 <div className="delivery-description">Send signature link via text message</div>
               </label>
 
-              <label className={`delivery-option ${deliveryMethod === 'both' ? 'selected' : ''}`}>
-                <input
-                  type="radio"
-                  name="deliveryMethod"
-                  value="both"
-                  checked={deliveryMethod === 'both'}
-                  onChange={(e) => setDeliveryMethod(e.target.value)}
-                />
-                <div className="delivery-icon">📧📱</div>
-                <div className="delivery-label">Email & SMS</div>
-                <div className="delivery-description">Send via both email and text</div>
-              </label>
             </div>
 
-            {(deliveryMethod === 'sms' || deliveryMethod === 'both') && (
+            {deliveryMethod === 'sms' && (
               <div className="sms-number-field">
                 <label>
                   SMS Phone Number *
@@ -337,7 +325,7 @@ const DocumentSelector = ({ customerData, onDocumentSelect }) => {
               (showAdditionalFields && getDocumentSpecificFields()
                 .filter(f => f.required)
                 .some(f => !additionalData[f.name])) ||
-              ((deliveryMethod === 'sms' || deliveryMethod === 'both') && !smsNumber)
+              (deliveryMethod === 'sms' && !smsNumber)
             }
           >
             Proceed to Fill & Send for Signature

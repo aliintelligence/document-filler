@@ -297,7 +297,7 @@ async function createInvite(apiUrl, apiKey, documentId, customerData, documentDa
   let smsResult = null;
 
   // Send email invite if requested
-  if (deliveryMethod === 'email' || deliveryMethod === 'both') {
+  if (deliveryMethod === 'email') {
     console.log('=== INVITE: Sending email invitation ===');
 
     // Use basic invite payload compatible with current subscription plan
@@ -376,14 +376,14 @@ async function createInvite(apiUrl, apiKey, documentId, customerData, documentDa
   }
 
   // Send SMS invite if requested
-  if (deliveryMethod === 'sms' || deliveryMethod === 'both') {
+  if (deliveryMethod === 'sms') {
     console.log('=== INVITE: Sending SMS invitation ===');
     smsResult = await sendSMSInvite(apiUrl, apiKey, documentId, smsNumber);
   }
 
   // Determine overall success and return result
-  const overallSuccess = (emailResult?.success || deliveryMethod === 'sms') &&
-                        (smsResult?.success || deliveryMethod === 'email');
+  const overallSuccess = (deliveryMethod === 'email' && emailResult?.success) ||
+                        (deliveryMethod === 'sms' && smsResult?.success);
 
   const finalSigningUrl = emailResult?.signing_url || `https://app.signnow.com/document/${documentId}`;
 
@@ -505,10 +505,10 @@ async function saveToDatabase(customerData, documentData, documentId, signingUrl
     };
 
     // Set delivery timestamps
-    if (deliveryMethod === 'email' || deliveryMethod === 'both') {
+    if (deliveryMethod === 'email') {
       documentRecord.email_sent_at = new Date().toISOString();
     }
-    if (deliveryMethod === 'sms' || deliveryMethod === 'both') {
+    if (deliveryMethod === 'sms') {
       documentRecord.sms_sent_at = new Date().toISOString();
     }
 

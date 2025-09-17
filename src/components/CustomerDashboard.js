@@ -108,7 +108,6 @@ const CustomerDashboard = () => {
     switch (method) {
       case 'email': return '📧 Email';
       case 'sms': return '📱 SMS';
-      case 'both': return '📧📱 Both';
       default: return '📧 Email';
     }
   };
@@ -300,7 +299,7 @@ const CustomerDashboard = () => {
                             Mark as Failed
                           </button>
 
-                          {(document.delivery_method === 'sms' || document.delivery_method === 'both') && (
+                          {document.delivery_method === 'sms' && (
                             <button
                               onClick={() => sendSMSReminder(document)}
                               className="btn-secondary"
