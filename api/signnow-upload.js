@@ -67,7 +67,7 @@ module.exports = async function handler(req, res) {
 
     // Step 3: Create invite
     console.log('=== STEP 3: CREATE INVITE ===');
-    const inviteResult = await createInvite(apiUrl, apiKey, documentId, customerData);
+    const inviteResult = await createInvite(apiUrl, apiKey, documentId, customerData, documentData);
     console.log('Invite result:', inviteResult);
 
     // Step 4: Save to database
@@ -284,94 +284,40 @@ async function addSignatureFields(apiUrl, apiKey, documentId, documentType, lang
 }
 
 // Step 3: Create invite for signature
-async function createInvite(apiUrl, apiKey, documentId, customerData) {
+async function createInvite(apiUrl, apiKey, documentId, customerData, documentData) {
   console.log('=== INVITE: Creating invitation ===');
   console.log('Document ID:', documentId);
   console.log('Customer email:', customerData.email);
+  console.log('Delivery method:', documentData.deliveryMethod || 'email');
 
-  // Use basic invite payload compatible with current subscription plan
-  // Error 65582: Custom subject/message requires upgraded subscription
-  const invitePayload = {
-    to: [{
-      email: customerData.email,
-      role: 'Signer 1',
-      order: 1,
-      expiration_days: 30
-    }],
-    from: process.env.SENDER_EMAIL || 'noreply@miamiwaterandair.com'
-  };
+  const deliveryMethod = documentData.deliveryMethod || 'email';
+  const smsNumber = documentData.smsNumber || customerData.phone;
 
-  console.log('=== INVITE: Sending invitation ===');
-  console.log('Invite payload:', JSON.stringify(invitePayload, null, 2));
+  let emailResult = null;
+  let smsResult = null;
 
-  try {
-    const response = await axios.post(
-      `${apiUrl}/document/${documentId}/invite`,
-      invitePayload,
-      {
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
+  // Send email invite if requested
+  if (deliveryMethod === 'email' || deliveryMethod === 'both') {
+    console.log('=== INVITE: Sending email invitation ===');
 
-    console.log('=== INVITE SUCCESS ===');
-    console.log('Response status:', response.status);
-    console.log('Response data:', JSON.stringify(response.data, null, 2));
-
-    let signingUrl = `https://app.signnow.com/document/${documentId}`;
-
-    // Try to get specific signing link
-    if (response.data && response.data.id) {
-      try {
-        console.log('=== INVITE: Getting signing link ===');
-        const linkResponse = await axios.get(
-          `${apiUrl}/document/${documentId}/invite/${response.data.id}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${apiKey}`
-            }
-          }
-        );
-
-        if (linkResponse.data && linkResponse.data.signing_link) {
-          signingUrl = linkResponse.data.signing_link;
-          console.log('=== INVITE: Got specific signing link ===');
-          console.log('Signing URL:', signingUrl);
-        }
-      } catch (linkError) {
-        console.log('=== INVITE: Could not get specific link, using default ===');
-        console.log('Link error:', linkError.message);
-      }
-    }
-
-    return {
-      success: true,
-      invite_id: response.data.id,
-      signing_url: signingUrl
+    // Use basic invite payload compatible with current subscription plan
+    // Error 65582: Custom subject/message requires upgraded subscription
+    const invitePayload = {
+      to: [{
+        email: customerData.email,
+        role: 'Signer 1',
+        order: 1,
+        expiration_days: 30
+      }],
+      from: process.env.SENDER_EMAIL || 'noreply@miamiwaterandair.com'
     };
 
-  } catch (error) {
-    console.error('=== INVITE ERROR: Failed to create invite ===');
-    console.error('Error message:', error.message);
-    console.error('Error status:', error.response?.status);
-    console.error('Error data:', JSON.stringify(error.response?.data, null, 2));
-    console.error('Request payload that failed:', JSON.stringify(invitePayload, null, 2));
+    console.log('Email invite payload:', JSON.stringify(invitePayload, null, 2));
 
-    // Try alternative invite method - basic freeform invite
-    console.log('=== INVITE: Trying basic freeform invite as fallback ===');
     try {
-      const freeformPayload = {
-        emails: [customerData.email]
-      };
-
-      console.log('Freeform payload:', JSON.stringify(freeformPayload, null, 2));
-
-      // Try simple email invite endpoint instead of freeform
-      const freeformResponse = await axios.post(
-        `${apiUrl}/document/${documentId}/emailinvite`,
-        freeformPayload,
+      const response = await axios.post(
+        `${apiUrl}/document/${documentId}/invite`,
+        invitePayload,
         {
           headers: {
             'Authorization': `Bearer ${apiKey}`,
@@ -380,30 +326,160 @@ async function createInvite(apiUrl, apiKey, documentId, customerData) {
         }
       );
 
-      console.log('=== FREEFORM INVITE SUCCESS ===');
-      console.log('Freeform response status:', freeformResponse.status);
-      console.log('Freeform response data:', JSON.stringify(freeformResponse.data, null, 2));
+      console.log('=== EMAIL INVITE SUCCESS ===');
+      console.log('Response status:', response.status);
+      console.log('Response data:', JSON.stringify(response.data, null, 2));
 
-      return {
+      let signingUrl = `https://app.signnow.com/document/${documentId}`;
+
+      // Try to get specific signing link
+      if (response.data && response.data.id) {
+        try {
+          console.log('=== EMAIL: Getting signing link ===');
+          const linkResponse = await axios.get(
+            `${apiUrl}/document/${documentId}/invite/${response.data.id}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${apiKey}`
+              }
+            }
+          );
+
+          if (linkResponse.data && linkResponse.data.signing_link) {
+            signingUrl = linkResponse.data.signing_link;
+            console.log('=== EMAIL: Got specific signing link ===');
+            console.log('Signing URL:', signingUrl);
+          }
+        } catch (linkError) {
+          console.log('=== EMAIL: Could not get specific link, using default ===');
+          console.log('Link error:', linkError.message);
+        }
+      }
+
+      emailResult = {
         success: true,
-        invite_id: freeformResponse.data.id || 'freeform',
-        signing_url: `https://app.signnow.com/document/${documentId}`,
-        method: 'freeform'
+        invite_id: response.data.id,
+        signing_url: signingUrl
       };
 
-    } catch (freeformError) {
-      console.error('=== FREEFORM INVITE ALSO FAILED ===');
-      console.error('Freeform error:', freeformError.message);
-      console.error('Freeform error status:', freeformError.response?.status);
-      console.error('Freeform error data:', JSON.stringify(freeformError.response?.data, null, 2));
+    } catch (error) {
+      console.error('=== EMAIL INVITE ERROR ===');
+      console.error('Error message:', error.message);
+      console.error('Error status:', error.response?.status);
+      console.error('Error data:', JSON.stringify(error.response?.data, null, 2));
 
-      // Return default URL if both methods fail
-      return {
+      emailResult = {
         success: false,
-        signing_url: `https://app.signnow.com/document/${documentId}`,
         error: error.message
       };
     }
+  }
+
+  // Send SMS invite if requested
+  if (deliveryMethod === 'sms' || deliveryMethod === 'both') {
+    console.log('=== INVITE: Sending SMS invitation ===');
+    smsResult = await sendSMSInvite(apiUrl, apiKey, documentId, smsNumber);
+  }
+
+  // Determine overall success and return result
+  const overallSuccess = (emailResult?.success || deliveryMethod === 'sms') &&
+                        (smsResult?.success || deliveryMethod === 'email');
+
+  const finalSigningUrl = emailResult?.signing_url || `https://app.signnow.com/document/${documentId}`;
+
+  if (overallSuccess) {
+    return {
+      success: true,
+      invite_id: emailResult?.invite_id,
+      signing_url: finalSigningUrl,
+      email_result: emailResult,
+      sms_result: smsResult,
+      delivery_method: deliveryMethod
+    };
+  }
+
+  // If we get here, something went wrong
+  console.error('=== INVITE: Overall invite process failed ===');
+  return {
+    success: false,
+    signing_url: `https://app.signnow.com/document/${documentId}`,
+    email_result: emailResult,
+    sms_result: smsResult,
+    delivery_method: deliveryMethod,
+    error: 'Invite process failed'
+  };
+}
+
+// SMS Invite function
+async function sendSMSInvite(apiUrl, apiKey, documentId, phoneNumber) {
+  console.log('=== SMS: Creating SMS invitation ===');
+  console.log('Phone number:', phoneNumber);
+
+  if (!phoneNumber) {
+    console.log('=== SMS: No phone number provided, skipping SMS ===');
+    return { success: false, error: 'No phone number provided' };
+  }
+
+  // Clean phone number - ensure it starts with +1 for US numbers
+  let cleanPhone = phoneNumber.replace(/\D/g, ''); // Remove all non-digits
+  if (cleanPhone.length === 10) {
+    cleanPhone = '1' + cleanPhone; // Add country code for US numbers
+  }
+  if (!cleanPhone.startsWith('1') && cleanPhone.length === 11) {
+    // Already has country code
+  } else if (cleanPhone.length !== 11) {
+    console.error('=== SMS: Invalid phone number format ===');
+    return { success: false, error: 'Invalid phone number format' };
+  }
+
+  const formattedPhone = '+' + cleanPhone;
+  console.log('=== SMS: Formatted phone number ===', formattedPhone);
+
+  try {
+    const smsPayload = {
+      to: [{
+        phone_number: formattedPhone,
+        role: 'Signer 1',
+        order: 1,
+        expiration_days: 30
+      }]
+    };
+
+    console.log('=== SMS: Sending SMS invitation ===');
+    console.log('SMS payload:', JSON.stringify(smsPayload, null, 2));
+
+    const response = await axios.post(
+      `${apiUrl}/document/${documentId}/invite`,
+      smsPayload,
+      {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    console.log('=== SMS SUCCESS ===');
+    console.log('SMS response status:', response.status);
+    console.log('SMS response data:', JSON.stringify(response.data, null, 2));
+
+    return {
+      success: true,
+      invite_id: response.data.id,
+      phone_number: formattedPhone
+    };
+
+  } catch (error) {
+    console.error('=== SMS ERROR: Failed to send SMS invite ===');
+    console.error('SMS error message:', error.message);
+    console.error('SMS error status:', error.response?.status);
+    console.error('SMS error data:', JSON.stringify(error.response?.data, null, 2));
+
+    return {
+      success: false,
+      error: error.message,
+      phone_number: formattedPhone
+    };
   }
 }
 
