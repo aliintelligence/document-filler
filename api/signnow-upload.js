@@ -86,8 +86,13 @@ module.exports = async function handler(req, res) {
       console.log('Warning: Fields may not have been added correctly, but continuing with invite...');
     }
 
+    // Get roles from document (required for field invites)
+    console.log('Step 3: Getting document roles...');
+    const documentRoles = await getDocumentRoles(apiUrl, apiKey, documentId);
+    console.log('Document roles:', documentRoles);
+
     // Create invite
-    console.log('Step 3: Creating field invite for signature...');
+    console.log('Step 4: Creating field invite for signature...');
     const inviteResponse = await createInvite(apiUrl, apiKey, documentId, customerData);
     console.log('Invite response:', inviteResponse);
 
@@ -311,24 +316,49 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
   }
 }
 
+async function getDocumentRoles(apiUrl, apiKey, documentId) {
+  try {
+    console.log('Getting document roles for:', documentId);
+
+    const response = await axios.get(
+      `${apiUrl}/document/${documentId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`
+        }
+      }
+    );
+
+    const document = response.data;
+    console.log('Document roles response:', JSON.stringify({
+      roles: document.roles || [],
+      viewer_roles: document.viewer_roles || [],
+      approver_roles: document.approver_roles || []
+    }, null, 2));
+
+    return document.roles || [];
+  } catch (error) {
+    console.error('Error getting document roles:', error.message);
+    console.error('Roles error status:', error.response?.status);
+    console.error('Roles error data:', JSON.stringify(error.response?.data, null, 2));
+    return [];
+  }
+}
+
 async function createInvite(apiUrl, apiKey, documentId, customerData) {
   try {
     const inviteData = {
-      document_id: documentId,
       to: [{
         email: customerData.email,
         role: 'Signer 1',
-        role_id: '1',
         order: 1,
-        authentication_type: 'password',
         reminder: 1,
         expiration_days: 30,
         subject: 'Document Ready for Signature',
         message: `Hello ${customerData.firstName} ${customerData.lastName},\n\nYour document is ready for electronic signature. Please review and sign at your convenience.\n\nThank you!`
       }],
       from: process.env.SENDER_EMAIL || 'noreply@miamiwaterandair.com',
-      cc: [],
-      client_timestamp: Math.floor(Date.now() / 1000)
+      cc: []
     };
 
     const response = await axios.post(
@@ -375,6 +405,7 @@ async function createInvite(apiUrl, apiKey, documentId, customerData) {
     console.error('Error creating invite:', error.message);
     console.error('Invite error status:', error.response?.status);
     console.error('Invite error data:', JSON.stringify(error.response?.data, null, 2));
+    console.error('Invite payload was:', JSON.stringify(inviteData, null, 2));
 
     // Return error details but don't throw
     return {
