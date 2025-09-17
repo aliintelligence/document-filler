@@ -119,7 +119,7 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
 
     // Define signature field configurations
     const signatureConfigs = {
-      // HD Contracts English - 3 signatures
+      // HD Contracts English - Start with just first page for testing
       'hd-docs_english': {
         fields: [
           {
@@ -131,30 +131,10 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
             role: 'Signer 1',
             required: true,
             type: 'signature'
-          },
-          {
-            x: 43,
-            y: 569,
-            width: 433,
-            height: 14,
-            page_number: 1,
-            role: 'Signer 1',
-            required: true,
-            type: 'signature'
-          },
-          {
-            x: 305,
-            y: 650,
-            width: 200,
-            height: 20,
-            page_number: 12,
-            role: 'Signer 1',
-            required: true,
-            type: 'signature'
           }
         ]
       },
-      // HD Contracts Spanish - 3 signatures
+      // HD Contracts Spanish - Start with just first page for testing
       'hd-docs_spanish': {
         fields: [
           {
@@ -163,26 +143,6 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
             width: 340,
             height: 14,
             page_number: 0,
-            role: 'Signer 1',
-            required: true,
-            type: 'signature'
-          },
-          {
-            x: 43,
-            y: 592,
-            width: 433,
-            height: 14,
-            page_number: 1,
-            role: 'Signer 1',
-            required: true,
-            type: 'signature'
-          },
-          {
-            x: 265,
-            y: 688,
-            width: 226,
-            height: 14,
-            page_number: 12,
             role: 'Signer 1',
             required: true,
             type: 'signature'
