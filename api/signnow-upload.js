@@ -213,34 +213,69 @@ async function addSignatureFields(apiUrl, apiKey, documentId, documentType, lang
 
   console.log('=== FIELDS: Adding', fields.length, 'signature fields ===');
 
-  // Add each field individually for better error handling
-  for (let i = 0; i < fields.length; i++) {
-    const field = fields[i];
-    console.log(`=== FIELD ${i + 1}/${fields.length}: Adding field ===`);
-    console.log('Field config:', field);
+  // Try adding all fields in a single API call to prevent overwriting
+  try {
+    console.log('=== ATTEMPTING: Adding all fields at once ===');
+    const allFieldsPayload = { fields: fields };
+    console.log('All fields payload:', JSON.stringify(allFieldsPayload, null, 2));
 
-    try {
-      const fieldPayload = { fields: [field] };
-
-      const response = await axios.put(
-        `${apiUrl}/document/${documentId}`,
-        fieldPayload,
-        {
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json'
-          }
+    const allFieldsResponse = await axios.put(
+      `${apiUrl}/document/${documentId}`,
+      allFieldsPayload,
+      {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
         }
-      );
+      }
+    );
 
-      console.log(`=== FIELD ${i + 1} SUCCESS ===`);
-      console.log('Response status:', response.status);
-    } catch (fieldError) {
-      console.error(`=== FIELD ${i + 1} ERROR ===`);
-      console.error('Error:', fieldError.message);
-      console.error('Status:', fieldError.response?.status);
-      console.error('Data:', fieldError.response?.data);
-      // Continue with other fields even if one fails
+    console.log('=== ALL FIELDS SUCCESS ===');
+    console.log('Response status:', allFieldsResponse.status);
+    console.log('Response data:', JSON.stringify(allFieldsResponse.data, null, 2));
+
+  } catch (allFieldsError) {
+    console.error('=== ALL FIELDS FAILED: Falling back to individual field addition ===');
+    console.error('All fields error:', allFieldsError.message);
+    console.error('All fields error status:', allFieldsError.response?.status);
+    console.error('All fields error data:', JSON.stringify(allFieldsError.response?.data, null, 2));
+
+    // Fallback: Add each field individually with unique IDs
+    console.log('=== FALLBACK: Adding fields individually with unique IDs ===');
+    for (let i = 0; i < fields.length; i++) {
+      const field = { ...fields[i] };
+
+      // Add unique field ID to prevent overwriting
+      field.field_id = `signature_field_${i + 1}_${Date.now()}`;
+      field.name = `signature_${i + 1}`;
+
+      console.log(`=== FIELD ${i + 1}/${fields.length}: Adding field with unique ID ===`);
+      console.log('Field config:', field);
+
+      try {
+        const fieldPayload = { fields: [field] };
+
+        const response = await axios.put(
+          `${apiUrl}/document/${documentId}`,
+          fieldPayload,
+          {
+            headers: {
+              'Authorization': `Bearer ${apiKey}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        console.log(`=== FIELD ${i + 1} SUCCESS ===`);
+        console.log('Response status:', response.status);
+        console.log('Response data:', JSON.stringify(response.data, null, 2));
+      } catch (fieldError) {
+        console.error(`=== FIELD ${i + 1} ERROR ===`);
+        console.error('Error:', fieldError.message);
+        console.error('Status:', fieldError.response?.status);
+        console.error('Data:', fieldError.response?.data);
+        // Continue with other fields even if one fails
+      }
     }
   }
 
