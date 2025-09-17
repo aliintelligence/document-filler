@@ -140,9 +140,19 @@ const CustomerDashboard = () => {
         return;
       }
 
-      // Convert base64 back to blob
-      const response = await fetch(signedData.signed_document_data);
-      const blob = await response.blob();
+      // Handle both data URL format and plain base64
+      let base64Data = signedData.signed_document_data;
+      if (base64Data.startsWith('data:application/pdf;base64,')) {
+        base64Data = base64Data.replace('data:application/pdf;base64,', '');
+      }
+
+      // Convert base64 to blob
+      const binaryString = atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: 'application/pdf' });
 
       // Create download link
       const url = URL.createObjectURL(blob);

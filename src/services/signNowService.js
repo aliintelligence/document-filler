@@ -336,19 +336,18 @@ class SignNowService {
   // Get document history to check signing status
   async getDocumentHistory(documentId) {
     try {
-      const token = await this.getAccessToken();
+      console.log('Getting document history via serverless function...');
 
       const response = await axios.get(
-        `${this.apiUrl}/document/${documentId}/historyfull`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
+        `/api/signnow-document?action=history&documentId=${documentId}`
       );
 
-      console.log('Document history:', response.data);
-      return response.data;
+      if (response.data.success) {
+        console.log('Document history retrieved:', response.data.history?.length || 0, 'events');
+        return response.data.history;
+      } else {
+        throw new Error(response.data.error || 'Failed to get document history');
+      }
 
     } catch (error) {
       console.error('Error getting document history:', error);
@@ -375,9 +374,11 @@ class SignNowService {
   // Download signed document
   async downloadSignedDocument(documentId, withHistory = false) {
     try {
-      const token = await this.getAccessToken();
+      console.log('Downloading document via serverless function...');
 
       const params = new URLSearchParams({
+        action: 'download',
+        documentId: documentId,
         type: 'collapsed'
       });
 
@@ -385,17 +386,20 @@ class SignNowService {
         params.append('with_history', '1');
       }
 
-      const response = await axios.get(
-        `${this.apiUrl}/document/${documentId}/download?${params}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          },
-          responseType: 'blob'
-        }
-      );
+      const response = await axios.get(`/api/signnow-document?${params}`);
 
-      return response.data;
+      if (response.data.success) {
+        // Convert base64 back to blob
+        const base64Data = response.data.documentData.replace('data:application/pdf;base64,', '');
+        const binaryString = atob(base64Data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        return new Blob([bytes], { type: 'application/pdf' });
+      } else {
+        throw new Error(response.data.error || 'Failed to download document');
+      }
 
     } catch (error) {
       console.error('Error downloading document:', error);
@@ -408,25 +412,26 @@ class SignNowService {
     try {
       console.log(`=== Checking document status for ${documentId} ===`);
 
-      // Get document history
-      const history = await this.getDocumentHistory(documentId);
-      const isSigned = this.isDocumentSigned(history);
+      // Use the combined status check API
+      const response = await axios.get(
+        `/api/signnow-document?action=status&documentId=${documentId}`
+      );
+
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Failed to check document status');
+      }
+
+      const { status, isSigned, history, signedDocumentData } = response.data;
 
       console.log(`Document ${documentId} is ${isSigned ? 'signed' : 'not signed yet'}`);
 
       if (isSigned) {
-        console.log('Document is signed, downloading...');
-
-        // Download the signed document
-        const signedDocumentBlob = await this.downloadSignedDocument(documentId, true);
-
-        // Convert blob to base64 for storage
-        const base64Data = await this.blobToBase64(signedDocumentBlob);
+        console.log('Document is signed, updating database...');
 
         // Update database with signed status and document data
         await supabaseDatabase.updateDocumentStatus(dbDocumentId, 'signed', {
           signed_at: new Date().toISOString(),
-          signed_document_data: base64Data,
+          signed_document_data: signedDocumentData,
           document_history: JSON.stringify(history)
         });
 
@@ -435,19 +440,21 @@ class SignNowService {
         return {
           success: true,
           status: 'signed',
-          documentBlob: signedDocumentBlob,
-          history: history
+          history: history,
+          mock: response.data.mock
         };
       } else {
         // Update last checked timestamp
         await supabaseDatabase.updateDocumentStatus(dbDocumentId, 'sent', {
-          last_checked: new Date().toISOString()
+          last_checked: new Date().toISOString(),
+          document_history: JSON.stringify(history)
         });
 
         return {
           success: true,
           status: 'sent',
-          history: history
+          history: history,
+          mock: response.data.mock
         };
       }
 
@@ -459,7 +466,7 @@ class SignNowService {
         console.log('Mock document detected, simulating signing...');
         await supabaseDatabase.updateDocumentStatus(dbDocumentId, 'signed', {
           signed_at: new Date().toISOString(),
-          signed_document_data: 'mock_signed_document_data',
+          signed_document_data: 'data:application/pdf;base64,mock_signed_document_data',
           document_history: JSON.stringify([{
             event: 'document_signing_session_completed',
             created: Math.floor(Date.now() / 1000),
