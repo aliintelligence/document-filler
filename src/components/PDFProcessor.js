@@ -358,8 +358,9 @@ ${documentData.customerData.notes}`;
     try {
       console.log('=== PDFProcessor: Sending to SignNow ===');
       console.log('Full documentData:', JSON.stringify(data, null, 2));
-      console.log('deliveryMethod:', data.deliveryMethod);
-      console.log('smsNumber:', data.smsNumber);
+      console.log('data.documentData:', JSON.stringify(data.documentData, null, 2));
+      console.log('deliveryMethod from documentData:', data.documentData?.deliveryMethod);
+      console.log('smsNumber from documentData:', data.documentData?.smsNumber);
 
       const result = await signNowService.uploadDocument(
         pdfBlob,
@@ -367,8 +368,8 @@ ${documentData.customerData.notes}`;
         {
           documentType: data.document.document_type,
           language: data.language,
-          deliveryMethod: data.deliveryMethod,
-          smsNumber: data.smsNumber,
+          deliveryMethod: data.documentData?.deliveryMethod,
+          smsNumber: data.documentData?.smsNumber,
           additionalFields: {
             salespersonName: data.customerData.salespersonName,
             authorizedRepresentative: data.customerData.authorizedRepresentative,
