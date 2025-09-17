@@ -333,13 +333,60 @@ class SignNowService {
     }
   }
 
-  // Download signed document
-  async downloadSignedDocument(documentId) {
+  // Get document history to check signing status
+  async getDocumentHistory(documentId) {
     try {
       const token = await this.getAccessToken();
 
       const response = await axios.get(
-        `${this.apiUrl}/document/${documentId}/download`,
+        `${this.apiUrl}/document/${documentId}/historyfull`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      console.log('Document history:', response.data);
+      return response.data;
+
+    } catch (error) {
+      console.error('Error getting document history:', error);
+      throw error;
+    }
+  }
+
+  // Check if document is signed based on history
+  isDocumentSigned(documentHistory) {
+    if (!Array.isArray(documentHistory)) return false;
+
+    // Look for signing completion events
+    const signingEvents = [
+      'document_signing_session_completed',
+      'document_complete',
+      'document_signed'
+    ];
+
+    return documentHistory.some(event =>
+      signingEvents.includes(event.event)
+    );
+  }
+
+  // Download signed document
+  async downloadSignedDocument(documentId, withHistory = false) {
+    try {
+      const token = await this.getAccessToken();
+
+      const params = new URLSearchParams({
+        type: 'collapsed'
+      });
+
+      if (withHistory) {
+        params.append('with_history', '1');
+      }
+
+      const response = await axios.get(
+        `${this.apiUrl}/document/${documentId}/download?${params}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -353,6 +400,84 @@ class SignNowService {
     } catch (error) {
       console.error('Error downloading document:', error);
       throw error;
+    }
+  }
+
+  // Comprehensive document status check with download if signed
+  async checkAndUpdateDocumentStatus(documentId, dbDocumentId) {
+    try {
+      console.log(`=== Checking document status for ${documentId} ===`);
+
+      // Get document history
+      const history = await this.getDocumentHistory(documentId);
+      const isSigned = this.isDocumentSigned(history);
+
+      console.log(`Document ${documentId} is ${isSigned ? 'signed' : 'not signed yet'}`);
+
+      if (isSigned) {
+        console.log('Document is signed, downloading...');
+
+        // Download the signed document
+        const signedDocumentBlob = await this.downloadSignedDocument(documentId, true);
+
+        // Convert blob to base64 for storage
+        const base64Data = await this.blobToBase64(signedDocumentBlob);
+
+        // Update database with signed status and document data
+        await supabaseDatabase.updateDocumentStatus(dbDocumentId, 'signed', {
+          signed_at: new Date().toISOString(),
+          signed_document_data: base64Data,
+          document_history: JSON.stringify(history)
+        });
+
+        console.log('Document status updated to signed with document data stored');
+
+        return {
+          success: true,
+          status: 'signed',
+          documentBlob: signedDocumentBlob,
+          history: history
+        };
+      } else {
+        // Update last checked timestamp
+        await supabaseDatabase.updateDocumentStatus(dbDocumentId, 'sent', {
+          last_checked: new Date().toISOString()
+        });
+
+        return {
+          success: true,
+          status: 'sent',
+          history: history
+        };
+      }
+
+    } catch (error) {
+      console.error('Error checking document status:', error);
+
+      // For mock documents, simulate signing after some time
+      if (documentId.startsWith('MOCK-DOC-')) {
+        console.log('Mock document detected, simulating signing...');
+        await supabaseDatabase.updateDocumentStatus(dbDocumentId, 'signed', {
+          signed_at: new Date().toISOString(),
+          signed_document_data: 'mock_signed_document_data',
+          document_history: JSON.stringify([{
+            event: 'document_signing_session_completed',
+            created: Math.floor(Date.now() / 1000),
+            email: 'mock@example.com'
+          }])
+        });
+
+        return {
+          success: true,
+          status: 'signed',
+          mock: true
+        };
+      }
+
+      return {
+        success: false,
+        error: error.message
+      };
     }
   }
 

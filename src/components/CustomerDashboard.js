@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import signNowService from '../services/signNowService';
+import supabaseDatabase from '../services/supabaseDatabase';
 import './CustomerDashboard.css';
 
 const CustomerDashboard = () => {
@@ -12,6 +14,7 @@ const CustomerDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState({});
+  const [statusCheckLoading, setStatusCheckLoading] = useState(false);
 
   useEffect(() => {
     loadCustomers();
@@ -94,6 +97,106 @@ const CustomerDashboard = () => {
     }
   };
 
+  const checkDocumentStatus = async (document) => {
+    if (!document.signnow_document_id) {
+      console.log('No SignNow document ID available');
+      return;
+    }
+
+    try {
+      setStatusCheckLoading(true);
+      console.log(`Checking status for document ${document.id} (SignNow: ${document.signnow_document_id})`);
+
+      const result = await signNowService.checkAndUpdateDocumentStatus(
+        document.signnow_document_id,
+        document.id
+      );
+
+      if (result.success && result.status === 'signed') {
+        console.log('Document is now signed!');
+        // Refresh customer details to show updated status
+        if (selectedCustomer) {
+          loadCustomerDetails(selectedCustomer.id);
+        }
+        alert('Document has been signed and downloaded successfully!');
+      } else if (result.success) {
+        console.log('Document status checked, still pending signature');
+      } else {
+        console.error('Failed to check document status:', result.error);
+      }
+    } catch (error) {
+      console.error('Error checking document status:', error);
+      setError('Failed to check document status');
+    } finally {
+      setStatusCheckLoading(false);
+    }
+  };
+
+  const downloadSignedDocument = async (document) => {
+    try {
+      const signedData = await supabaseDatabase.getSignedDocumentData(document.id);
+      if (!signedData?.signed_document_data) {
+        alert('Signed document not available');
+        return;
+      }
+
+      // Convert base64 back to blob
+      const response = await fetch(signedData.signed_document_data);
+      const blob = await response.blob();
+
+      // Create download link
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${selectedCustomer.first_name}_${selectedCustomer.last_name}_${document.document_type}_signed.pdf`;
+      link.click();
+
+      // Clean up
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error downloading signed document:', error);
+      setError('Failed to download signed document');
+    }
+  };
+
+  const checkAllDocumentStatuses = async () => {
+    try {
+      setStatusCheckLoading(true);
+      const documentsToCheck = await supabaseDatabase.getDocumentsForStatusCheck();
+
+      console.log(`Checking status for ${documentsToCheck.length} documents`);
+
+      let updatedCount = 0;
+      for (const doc of documentsToCheck) {
+        if (doc.signnow_document_id) {
+          const result = await signNowService.checkAndUpdateDocumentStatus(
+            doc.signnow_document_id,
+            doc.id
+          );
+          if (result.success && result.status === 'signed') {
+            updatedCount++;
+          }
+        }
+      }
+
+      if (updatedCount > 0) {
+        alert(`${updatedCount} document(s) have been signed and updated!`);
+        // Refresh data
+        loadCustomers();
+        if (selectedCustomer) {
+          loadCustomerDetails(selectedCustomer.id);
+        }
+      } else {
+        alert('No new signed documents found');
+      }
+    } catch (error) {
+      console.error('Error checking all document statuses:', error);
+      setError('Failed to check document statuses');
+    } finally {
+      setStatusCheckLoading(false);
+    }
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'pending': return '#f59e0b';
@@ -137,6 +240,16 @@ const CustomerDashboard = () => {
 
       {!selectedCustomer ? (
         <div className="customers-list">
+          <div className="dashboard-header">
+            <button
+              className="check-all-btn"
+              onClick={checkAllDocumentStatuses}
+              disabled={statusCheckLoading}
+            >
+              {statusCheckLoading ? '🔄 Checking...' : '🔍 Check All Document Statuses'}
+            </button>
+          </div>
+
           <div className="filters">
             <input
               type="text"
@@ -283,8 +396,25 @@ const CustomerDashboard = () => {
                         </a>
                       )}
 
+                      {document.status === 'signed' && (
+                        <button
+                          onClick={() => downloadSignedDocument(document)}
+                          className="btn-download"
+                        >
+                          📥 Download Signed Document
+                        </button>
+                      )}
+
                       {document.status === 'sent' && (
                         <div className="status-actions">
+                          <button
+                            onClick={() => checkDocumentStatus(document)}
+                            className="btn-check"
+                            disabled={statusCheckLoading}
+                          >
+                            {statusCheckLoading ? '🔄' : '🔍'} Check Status
+                          </button>
+
                           <button
                             onClick={() => updateDocumentStatus(document.id, 'signed')}
                             className="btn-success"

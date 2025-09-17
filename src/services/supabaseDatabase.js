@@ -228,6 +228,48 @@ class SupabaseDatabase {
     }
   }
 
+  // Get signed document data for download
+  async getSignedDocumentData(documentId) {
+    try {
+      const { data, error } = await supabase
+        .from('documents')
+        .select('signed_document_data, signed_at')
+        .eq('id', documentId)
+        .eq('status', 'signed')
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error getting signed document data:', error);
+      return null;
+    }
+  }
+
+  // Get all documents that need status checking
+  async getDocumentsForStatusCheck() {
+    try {
+      const { data, error } = await supabase
+        .from('documents')
+        .select(`
+          id,
+          signnow_document_id,
+          status,
+          last_checked,
+          created_at,
+          customer:customers(first_name, last_name, email)
+        `)
+        .in('status', ['sent', 'pending'])
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error getting documents for status check:', error);
+      return [];
+    }
+  }
+
   async getDocumentById(documentId) {
     try {
       const { data, error } = await supabase
