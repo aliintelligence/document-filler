@@ -254,15 +254,14 @@ async function createInvite(apiUrl, apiKey, documentId, customerData) {
   console.log('Document ID:', documentId);
   console.log('Customer email:', customerData.email);
 
-  // Use simpler invite payload that matches SignNow API requirements
+  // Use basic invite payload compatible with current subscription plan
+  // Error 65582: Custom subject/message requires upgraded subscription
   const invitePayload = {
     to: [{
       email: customerData.email,
       role: 'Signer 1',
       order: 1,
-      expiration_days: 30,
-      subject: 'Document Ready for Signature',
-      message: `Hello ${customerData.firstName} ${customerData.lastName},\n\nYour document is ready for electronic signature. Please review and sign at your convenience.\n\nThank you!`
+      expiration_days: 30
     }],
     from: process.env.SENDER_EMAIL || 'noreply@miamiwaterandair.com'
   };
@@ -325,19 +324,18 @@ async function createInvite(apiUrl, apiKey, documentId, customerData) {
     console.error('Error data:', JSON.stringify(error.response?.data, null, 2));
     console.error('Request payload that failed:', JSON.stringify(invitePayload, null, 2));
 
-    // Try alternative invite method - freeform invite
-    console.log('=== INVITE: Trying freeform invite as fallback ===');
+    // Try alternative invite method - basic freeform invite
+    console.log('=== INVITE: Trying basic freeform invite as fallback ===');
     try {
       const freeformPayload = {
-        emails: [customerData.email],
-        subject: 'Document Ready for Signature',
-        message: `Hello ${customerData.firstName} ${customerData.lastName},\n\nYour document is ready for electronic signature. Please review and sign at your convenience.\n\nThank you!`
+        emails: [customerData.email]
       };
 
       console.log('Freeform payload:', JSON.stringify(freeformPayload, null, 2));
 
+      // Try simple email invite endpoint instead of freeform
       const freeformResponse = await axios.post(
-        `${apiUrl}/document/${documentId}/freeforminvite`,
+        `${apiUrl}/document/${documentId}/emailinvite`,
         freeformPayload,
         {
           headers: {
