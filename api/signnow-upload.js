@@ -79,10 +79,13 @@ module.exports = async function handler(req, res) {
     console.log('Document uploaded, ID:', documentId);
 
     // Add signature fields based on document type and language
+    console.log('Step 2: Adding signature fields...');
     await addSignatureField(apiUrl, apiKey, documentId, documentData.documentType, documentData.language);
 
     // Create invite
+    console.log('Step 3: Creating invite for signature...');
     const inviteResponse = await createInvite(apiUrl, apiKey, documentId, customerData);
+    console.log('Invite response:', inviteResponse);
 
     // Save to database
     const dbDocument = await saveToDatabase(customerData, documentData, documentId, inviteResponse.signing_url);
@@ -120,7 +123,7 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
             width: 340,
             height: 14,
             page_number: 0,
-            role: 'Customer',
+            role: 'Signer 1',
             required: true,
             type: 'signature'
           },
@@ -130,7 +133,7 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
             width: 433,
             height: 14,
             page_number: 1,
-            role: 'Customer',
+            role: 'Signer 1',
             required: true,
             type: 'signature'
           },
@@ -140,7 +143,7 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
             width: 200,
             height: 20,
             page_number: 12,
-            role: 'Customer',
+            role: 'Signer 1',
             required: true,
             type: 'signature'
           }
@@ -155,7 +158,7 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
             width: 340,
             height: 14,
             page_number: 0,
-            role: 'Customer',
+            role: 'Signer 1',
             required: true,
             type: 'signature'
           },
@@ -165,7 +168,7 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
             width: 433,
             height: 14,
             page_number: 1,
-            role: 'Customer',
+            role: 'Signer 1',
             required: true,
             type: 'signature'
           },
@@ -175,7 +178,7 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
             width: 226,
             height: 14,
             page_number: 12,
-            role: 'Customer',
+            role: 'Signer 1',
             required: true,
             type: 'signature'
           }
@@ -190,7 +193,7 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
             width: 180,
             height: 24,
             page_number: 0,
-            role: 'Customer',
+            role: 'Signer 1',
             required: true,
             type: 'signature'
           }
@@ -204,7 +207,7 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
             width: 180,
             height: 24,
             page_number: 0,
-            role: 'Customer',
+            role: 'Signer 1',
             required: true,
             type: 'signature'
           }
@@ -228,7 +231,7 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
             width: 250,
             height: 60,
             page_number: 0,
-            role: 'Customer',
+            role: 'Signer 1',
             required: true
           }
         ]
@@ -244,7 +247,6 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
 
       for (let i = 0; i < fieldData.fields.length; i++) {
         const singleFieldData = {
-          client_timestamp: Math.floor(Date.now() / 1000),
           fields: [fieldData.fields[i]]
         };
 
@@ -271,13 +273,9 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
       }
     } else {
       // Single field, add normally
-      const singleFieldDataWithTimestamp = {
-        client_timestamp: Math.floor(Date.now() / 1000),
-        ...fieldData
-      };
       const response = await axios.put(
         `${apiUrl}/document/${documentId}`,
-        singleFieldDataWithTimestamp,
+        fieldData,
         {
           headers: {
             'Authorization': `Bearer ${apiKey}`,
@@ -295,7 +293,8 @@ async function addSignatureField(apiUrl, apiKey, documentId, documentType, langu
     console.error('Error adding signature field:', error.message);
     console.error('Error status:', error.response?.status);
     console.error('Error data:', JSON.stringify(error.response?.data, null, 2));
-    // Continue even if field addition fails
+    // Throw the error so we can see what's happening
+    throw error;
   }
 }
 
@@ -361,11 +360,10 @@ async function createInvite(apiUrl, apiKey, documentId, customerData) {
 
   } catch (error) {
     console.error('Error creating invite:', error.message);
-    return {
-      success: false,
-      signing_url: `https://app.signnow.com/document/${documentId}`,
-      error: error.message
-    };
+    console.error('Invite error status:', error.response?.status);
+    console.error('Invite error data:', JSON.stringify(error.response?.data, null, 2));
+    // Throw error to see what's happening
+    throw error;
   }
 }
 
