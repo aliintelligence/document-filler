@@ -346,8 +346,9 @@ async function getDocumentRoles(apiUrl, apiKey, documentId) {
 }
 
 async function createInvite(apiUrl, apiKey, documentId, customerData) {
+  let inviteData;
   try {
-    const inviteData = {
+    inviteData = {
       to: [{
         email: customerData.email,
         role: 'Signer 1',
@@ -405,7 +406,7 @@ async function createInvite(apiUrl, apiKey, documentId, customerData) {
     console.error('Error creating invite:', error.message);
     console.error('Invite error status:', error.response?.status);
     console.error('Invite error data:', JSON.stringify(error.response?.data, null, 2));
-    console.error('Invite payload was:', JSON.stringify(inviteData, null, 2));
+    console.error('Invite payload was:', inviteData ? JSON.stringify(inviteData, null, 2) : 'undefined');
 
     // Return error details but don't throw
     return {
