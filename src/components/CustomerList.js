@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import supabaseDatabase from '../services/supabaseDatabase';
 import './CustomerList.css';
 
@@ -8,14 +8,23 @@ const CustomerList = ({ onSelectCustomer, onAddNewCustomer }) => {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerDocuments, setCustomerDocuments] = useState({});
   const [showDocuments, setShowDocuments] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   useEffect(() => {
     loadCustomers();
   }, []);
 
   const loadCustomers = async () => {
-    const allCustomers = await supabaseDatabase.getAllCustomers();
-    setCustomers(allCustomers);
+    try {
+      setLoading(true);
+      const allCustomers = await supabaseDatabase.getAllCustomers();
+      setCustomers(allCustomers);
+    } catch (error) {
+      console.error('Error loading customers:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const loadCustomerDocuments = async (customerId) => {
@@ -31,23 +40,38 @@ const CustomerList = ({ onSelectCustomer, onAddNewCustomer }) => {
   const handleSearch = async (e) => {
     const term = e.target.value;
     setSearchTerm(term);
-    if (term) {
-      const filtered = await supabaseDatabase.searchCustomers(term);
-      setCustomers(filtered);
-    } else {
-      loadCustomers();
+
+    // Debounce search to avoid too many requests
+    if (handleSearch.timeout) {
+      clearTimeout(handleSearch.timeout);
     }
+
+    handleSearch.timeout = setTimeout(async () => {
+      try {
+        setSearchLoading(true);
+        if (term.trim()) {
+          const filtered = await supabaseDatabase.searchCustomers(term.trim());
+          setCustomers(filtered);
+        } else {
+          await loadCustomers();
+        }
+      } catch (error) {
+        console.error('Error searching customers:', error);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 300); // 300ms debounce
   };
 
-  const handleSelectCustomer = (customer) => {
+  const handleSelectCustomer = useCallback((customer) => {
     setSelectedCustomer(customer);
-  };
+  }, []);
 
-  const handleConfirmSelection = () => {
+  const handleConfirmSelection = useCallback(() => {
     if (selectedCustomer) {
       onSelectCustomer(selectedCustomer);
     }
-  };
+  }, [selectedCustomer, onSelectCustomer]);
 
   const handleDeleteCustomer = async (id, e) => {
     e.stopPropagation();
@@ -122,15 +146,25 @@ const CustomerList = ({ onSelectCustomer, onAddNewCustomer }) => {
             placeholder="Search customers..."
             value={searchTerm}
             onChange={handleSearch}
+            disabled={loading}
           />
-          🔍
+          {searchLoading ? (
+            <div className="search-spinner">⏳</div>
+          ) : (
+            <span>🔍</span>
+          )}
         </div>
       </div>
 
       <div className="customers-grid">
-        {customers.length === 0 ? (
+        {loading ? (
+          <div className="loading-customers">
+            <div className="spinner"></div>
+            <p>Loading customers...</p>
+          </div>
+        ) : customers.length === 0 ? (
           <div className="no-customers">
-            <p>No customers found.</p>
+            <p>{searchTerm ? 'No customers found matching your search.' : 'No customers found.'}</p>
             <p>Click "Add New Customer" to get started.</p>
           </div>
         ) : (

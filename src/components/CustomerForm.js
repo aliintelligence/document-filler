@@ -18,6 +18,7 @@ const CustomerForm = ({ onSubmit, editingCustomer = null }) => {
     monthlyPayment: '',
     totalEquipmentPrice: ''
   });
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (editingCustomer) {
@@ -27,25 +28,54 @@ const CustomerForm = ({ onSubmit, editingCustomer = null }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+
+    let processedValue = value;
+
+    // Auto-format phone number
+    if (name === 'phone') {
+      processedValue = value.replace(/\D/g, ''); // Remove non-digits
+      if (processedValue.length <= 10) {
+        // Format as (XXX) XXX-XXXX
+        if (processedValue.length >= 6) {
+          processedValue = `(${processedValue.slice(0, 3)}) ${processedValue.slice(3, 6)}-${processedValue.slice(6)}`;
+        } else if (processedValue.length >= 3) {
+          processedValue = `(${processedValue.slice(0, 3)}) ${processedValue.slice(3)}`;
+        }
+      }
+    }
+
+    // Auto-uppercase state
+    if (name === 'state') {
+      processedValue = value.toUpperCase();
+    }
+
     setCustomerData(prev => ({
       ...prev,
-      [name]: value
+      [name]: processedValue
     }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    let savedCustomer;
-    if (editingCustomer?.id) {
-      // Update existing customer
-      savedCustomer = await supabaseDatabase.updateCustomer(editingCustomer.id, customerData);
-    } else {
-      // Add new customer
-      savedCustomer = await supabaseDatabase.addCustomer(customerData);
-    }
+    try {
+      setLoading(true);
+      let savedCustomer;
+      if (editingCustomer?.id) {
+        // Update existing customer
+        savedCustomer = await supabaseDatabase.updateCustomer(editingCustomer.id, customerData);
+      } else {
+        // Add new customer
+        savedCustomer = await supabaseDatabase.addCustomer(customerData);
+      }
 
-    onSubmit(savedCustomer);
+      onSubmit(savedCustomer);
+    } catch (error) {
+      console.error('Error saving customer:', error);
+      alert('Error saving customer. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -213,7 +243,9 @@ const CustomerForm = ({ onSubmit, editingCustomer = null }) => {
           </div>
         </div>
 
-        <button type="submit" className="submit-btn">Continue to Document Selection</button>
+        <button type="submit" className="submit-btn" disabled={loading}>
+          {loading ? 'Saving...' : 'Continue to Document Selection'}
+        </button>
       </form>
     </div>
   );
