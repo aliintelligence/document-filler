@@ -33,7 +33,7 @@ module.exports = async (req, res) => {
     console.log(`Number of pictures: ${pictures.length}`);
 
     // Create transporter
-    const transporter = nodemailer.createTransporter({
+    const transporter = nodemailer.createTransport({
       service: 'gmail', // or your email service
       auth: {
         user: EMAIL_USER,
