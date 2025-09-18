@@ -25,13 +25,106 @@ const PDFProcessor = ({ documentData, onComplete }) => {
 
     try {
       const pdfPath = `/pdfs/${documentData.document.file_path}`;
-      const existingPdfBytes = await fetch(pdfPath).then(res => {
-        if (!res.ok) throw new Error('PDF template not found');
-        return res.arrayBuffer();
+      console.log('Loading PDF from path:', pdfPath);
+
+      console.log('=== PDF DEBUGGING START ===');
+      console.log('Fetching PDF from:', pdfPath);
+      console.log('Document type:', documentData.document?.document_type);
+      console.log('Document name:', documentData.document?.name);
+
+      const pdfResponse = await fetch(pdfPath);
+      console.log('Fetch response status:', pdfResponse.status);
+      console.log('Fetch response headers:', {
+        contentType: pdfResponse.headers.get('content-type'),
+        contentLength: pdfResponse.headers.get('content-length')
       });
 
+      if (!pdfResponse.ok) {
+        throw new Error(`PDF template not found at ${pdfPath} (status: ${pdfResponse.status})`);
+      }
+
+      // Get the response as different formats for debugging
+      const pdfArrayBuffer = await pdfResponse.arrayBuffer();
+      console.log('ArrayBuffer size:', pdfArrayBuffer.byteLength);
+
+      const existingPdfBytes = new Uint8Array(pdfArrayBuffer);
+      console.log('Uint8Array size:', existingPdfBytes.length, 'bytes');
+
+      // Check first 100 bytes for debugging
+      const first100 = existingPdfBytes.slice(0, 100);
+      console.log('First 100 bytes (hex):', Array.from(first100).map(b => b.toString(16).padStart(2, '0')).join(' '));
+
+      // Validate that we have a proper PDF by checking the header
+      const headerString = String.fromCharCode(...existingPdfBytes.slice(0, 8));
+      console.log('PDF header string:', headerString);
+      console.log('Header starts with %PDF-?', headerString.startsWith('%PDF-'));
+
+      // Check for specific byte patterns that might cause issues
+      const byteAt644 = existingPdfBytes.slice(644, 660);
+      console.log('Bytes at offset 644 (where error occurs):', Array.from(byteAt644).map(b => b.toString(16).padStart(2, '0')).join(' '));
+      console.log('String at offset 644:', String.fromCharCode(...byteAt644));
+
+      if (!headerString.startsWith('%PDF-')) {
+        console.error('ERROR: Invalid PDF header detected');
+        throw new Error('Invalid PDF file: PDF header not found');
+      }
+
+      setStatus('Parsing PDF document...');
+
+      // Check if this is the membership plan and try special handling
+      if (documentData.document?.document_type === 'membership-plan') {
+        console.log('SPECIAL HANDLING FOR MEMBERSHIP PLAN PDF');
+        console.log('Attempting to parse with most relaxed settings first...');
+      }
+
+      // Special handling for problematic PDFs - try the most compatible approach first
+      let pdfDoc;
+      const parseOptions = [
+        // Most permissive options first for problematic PDFs
+        {
+          ignoreEncryption: true,
+          capNumbers: false,
+          throwOnInvalidObject: false,
+          updateFieldAppearances: false,
+          parseSpeed: 'slow'
+        },
+        // Fallback to standard parsing
+        {},
+        // Medium permissive
+        {
+          ignoreEncryption: true,
+          throwOnInvalidObject: false
+        }
+      ];
+
+      let lastError = null;
+      for (let i = 0; i < parseOptions.length; i++) {
+        try {
+          console.log(`Attempting to parse PDF with options set ${i + 1}...`, parseOptions[i]);
+          console.log('Using PDFDocument.load with bytes length:', existingPdfBytes.length);
+
+          pdfDoc = await PDFDocument.load(existingPdfBytes, parseOptions[i]);
+
+          console.log(`PDF parsed successfully with options set ${i + 1}`);
+          console.log('PDF page count:', pdfDoc.getPageCount());
+          console.log('=== PDF DEBUGGING END - SUCCESS ===');
+          break;
+        } catch (parseError) {
+          console.error(`PDF parsing failed with options set ${i + 1}:`, parseError.message);
+          console.error('Parse error stack:', parseError.stack);
+          console.error('Parse error details:', parseError);
+          lastError = parseError;
+
+          if (i === parseOptions.length - 1) {
+            // All parsing attempts failed
+            console.error('=== PDF DEBUGGING END - FAILURE ===');
+            console.error('All PDF parsing attempts failed. Last error:', lastError);
+            throw new Error(`Cannot parse PDF document. The PDF file may be corrupted or use unsupported features. Please try using a different PDF file. Error: ${lastError.message}`);
+          }
+        }
+      }
+
       setStatus('Filling PDF form fields...');
-      const pdfDoc = await PDFDocument.load(existingPdfBytes);
       const form = pdfDoc.getForm();
 
       // Get all form fields for debugging

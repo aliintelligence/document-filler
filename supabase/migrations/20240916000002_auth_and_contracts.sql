@@ -220,7 +220,6 @@ INSERT INTO contract_templates (name, document_type, language, file_path, descri
 ('HD Docs - Spanish', 'hd-docs', 'spanish', 'hd-docs-spanish.pdf', 'HD Documentation in Spanish', true),
 ('Charge Slip - English', 'charge-slip', 'english', 'charge-slip-english.pdf', 'Charge Slip in English', true),
 ('Charge Slip - Spanish', 'charge-slip', 'spanish', 'charge-slip-spanish.pdf', 'Charge Slip in Spanish', true),
-('Membership Package', 'membership-package', 'english', 'membership-package.pdf', 'Membership Package Contract', true),
 ('Credit Authorization', 'credit-authorization', 'english', 'credit-authorization.pdf', 'Credit Authorization Form', true)
 ON CONFLICT DO NOTHING;
 
