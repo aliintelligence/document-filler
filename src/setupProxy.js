@@ -53,6 +53,22 @@ module.exports = function(app) {
     }
   });
 
+  // Install pictures email endpoint
+  app.post('/api/send-install-pictures', async (req, res) => {
+    try {
+      // Import the send-install-pictures function
+      const sendInstallPictures = require('../api/send-install-pictures');
+      await sendInstallPictures(req, res);
+    } catch (error) {
+      console.error('Error in install pictures endpoint:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to send install pictures',
+        details: error.message
+      });
+    }
+  });
+
   // Endpoint for signature completion redirect
   app.get('/signature-complete', (req, res) => {
     res.send(`
