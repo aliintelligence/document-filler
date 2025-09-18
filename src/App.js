@@ -92,6 +92,7 @@ function AppContent() {
 
   const handleInstallPicturesSubmit = async (picturesData) => {
     try {
+      console.log('Sending install pictures to API...');
       const response = await fetch('/api/send-install-pictures', {
         method: 'POST',
         headers: {
@@ -100,7 +101,22 @@ function AppContent() {
         body: JSON.stringify(picturesData)
       });
 
-      const result = await response.json();
+      console.log('API response status:', response.status);
+      console.log('API response headers:', response.headers);
+
+      // Try to get response text first to see what we're getting
+      const responseText = await response.text();
+      console.log('Raw API response:', responseText);
+
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (parseError) {
+        console.error('Failed to parse API response as JSON:', parseError);
+        throw new Error(`API returned invalid JSON. Status: ${response.status}, Response: ${responseText}`);
+      }
+
+      console.log('Parsed API result:', result);
 
       if (result.success) {
         // Add pictures info to completion result
@@ -111,11 +127,11 @@ function AppContent() {
         }));
         setCurrentStep('complete');
       } else {
-        throw new Error(result.error || 'Failed to send pictures');
+        throw new Error(result.error || result.details || 'Failed to send pictures');
       }
     } catch (error) {
       console.error('Error sending install pictures:', error);
-      alert('Failed to send install pictures. Please try again.');
+      alert(`Failed to send install pictures: ${error.message}`);
       throw error;
     }
   };
