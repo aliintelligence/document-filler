@@ -299,6 +299,8 @@ function AppContent() {
           <CompletionScreen
             result={completionResult}
             onNewDocument={handleNewDocument}
+            documentData={documentData}
+            customerData={selectedCustomer}
           />
         )}
       </main>

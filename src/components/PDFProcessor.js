@@ -618,7 +618,9 @@ ${documentData.customerData.notes}`;
             signatureUrl: result.signatureUrl,
             documentId: result.documentId,
             dbDocument: result.dbDocument,
-            mock: result.mock || false
+            mock: result.mock || false,
+            deliveryMethod: data.documentData?.deliveryMethod || 'email',
+            smsNumber: data.documentData?.smsNumber
           });
         }, 2000);
       } else {
