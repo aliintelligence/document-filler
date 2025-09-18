@@ -210,7 +210,7 @@ function AppContent() {
           </div>
         </div>
 
-        {currentStep !== 'admin' && (
+        {currentStep !== 'admin' && currentStep !== 'dashboard' && (
           <>
             <div className="step-indicator">
               <span className={currentStep === 'customerList' || currentStep === 'customerForm' ? 'active' : ''}>
@@ -222,13 +222,13 @@ function AppContent() {
               <span className={currentStep === 'processing' ? 'active' : ''}>
                 3. Process
               </span>
-              {documentData?.document?.document_type === 'hd-docs' && (
+              {(currentStep === 'installPictures' || currentStep === 'complete') && documentData?.document?.document_type === 'hd-docs' && (
                 <span className={currentStep === 'installPictures' ? 'active' : ''}>
                   4. Install Photos
                 </span>
               )}
               <span className={currentStep === 'complete' ? 'active' : ''}>
-                {documentData?.document?.document_type === 'hd-docs' ? '5. Complete' : '4. Complete'}
+                {(currentStep === 'installPictures' || currentStep === 'complete') && documentData?.document?.document_type === 'hd-docs' ? '5. Complete' : '4. Complete'}
               </span>
             </div>
             {selectedCustomer && currentStep !== 'customerList' && currentStep !== 'customerForm' && (

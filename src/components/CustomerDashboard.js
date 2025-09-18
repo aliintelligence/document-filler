@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import signNowService from '../services/signNowService';
 import supabaseDatabase from '../services/supabaseDatabase';
+import InstallPicturesUpload from './InstallPicturesUpload';
 import './CustomerDashboard.css';
 
 const CustomerDashboard = () => {
@@ -15,6 +16,7 @@ const CustomerDashboard = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState({});
   const [statusCheckLoading, setStatusCheckLoading] = useState(false);
+  const [showInstallPictures, setShowInstallPictures] = useState(false);
 
   useEffect(() => {
     loadCustomers();
@@ -225,6 +227,38 @@ const CustomerDashboard = () => {
     }
   };
 
+  const handleInstallPicturesSubmit = async (picturesData) => {
+    try {
+      console.log('Sending install pictures from customer dashboard...');
+      const response = await fetch('/api/send-install-pictures', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(picturesData)
+      });
+
+      const responseText = await response.text();
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (parseError) {
+        throw new Error(`API returned invalid JSON. Status: ${response.status}`);
+      }
+
+      if (result.success) {
+        alert(`Install pictures sent successfully! ${result.pictureCount} picture(s) emailed.`);
+        setShowInstallPictures(false);
+      } else {
+        throw new Error(result.error || result.details || 'Failed to send pictures');
+      }
+    } catch (error) {
+      console.error('Error sending install pictures:', error);
+      alert(`Failed to send install pictures: ${error.message}`);
+      throw error;
+    }
+  };
+
   const filteredCustomers = customers.filter(customer => {
     if (filter === 'all') return true;
     return customer.documents?.some(doc => doc.status === filter);
@@ -248,7 +282,31 @@ const CustomerDashboard = () => {
     <div className="customer-dashboard">
       <h1>Customer Document Management</h1>
 
-      {!selectedCustomer ? (
+      {showInstallPictures && selectedCustomer ? (
+        <div>
+          <button
+            className="back-button"
+            onClick={() => setShowInstallPictures(false)}
+          >
+            ← Back to Customer Details
+          </button>
+          <InstallPicturesUpload
+            customerData={{
+              firstName: selectedCustomer.first_name,
+              lastName: selectedCustomer.last_name,
+              email: selectedCustomer.email,
+              phone: selectedCustomer.phone,
+              address: selectedCustomer.address,
+              city: selectedCustomer.city,
+              state: selectedCustomer.state,
+              zipCode: selectedCustomer.zip_code,
+              equipment: selectedCustomer.equipment
+            }}
+            onPicturesSubmit={handleInstallPicturesSubmit}
+            onBack={() => setShowInstallPictures(false)}
+          />
+        </div>
+      ) : !selectedCustomer ? (
         <div className="customers-list">
           <div className="dashboard-header">
             <button
@@ -359,6 +417,13 @@ const CustomerDashboard = () => {
                 <p><strong>Equipment:</strong> {selectedCustomer.equipment}</p>
               )}
             </div>
+            <button
+              className="btn-primary"
+              onClick={() => setShowInstallPictures(true)}
+              style={{marginTop: '15px'}}
+            >
+              📸 Send Install Pictures
+            </button>
           </div>
 
           <div className="documents-section">
