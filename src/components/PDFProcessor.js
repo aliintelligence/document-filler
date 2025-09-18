@@ -258,30 +258,28 @@ ${documentData.customerData.notes}`;
           }
         }
       } else if (documentData.document.document_type === 'membership-plan') {
-        // Fill Membership Plan specific fields
+        // Fill Membership Plan specific fields - using EXACT field names from PDF
         const membershipFields = {
-          'CustomerName': `${documentData.customerData.firstName} ${documentData.customerData.lastName}`,
-          'CustomerAddress': documentData.customerData.address,
-          'City': documentData.customerData.city,
-          'State': documentData.customerData.state,
-          'Zip': documentData.customerData.zipCode,
-          'CustomerPhone': documentData.customerData.phone,
-          'CustomerEmail': documentData.customerData.email,
-          'CustomerFirstName': documentData.customerData.firstName,
-          'CustomerLastName': documentData.customerData.lastName,
-          'FinanceCompany': documentData.customerData.financeCompany,
-          'InstallDate': documentData.customerData.installDate || '',
-          'MonthlyPayment': documentData.customerData.monthlyPayment,
-          'TotalPrice': documentData.customerData.totalEquipmentPrice,
-          'Equipment': documentData.customerData.equipment
+          // Customer Information (note the spaces in field names!)
+          'Customer Name': `${documentData.customerData.firstName} ${documentData.customerData.lastName}`,
+          'Customer Address': `${documentData.customerData.address}, ${documentData.customerData.city}, ${documentData.customerData.state} ${documentData.customerData.zipCode}`,
+          'Customer Phone': documentData.customerData.phone,
+          'Customer Email': documentData.customerData.email,
+
+          // Finance Information (with spaces!)
+          'Finance Company': documentData.customerData.financeCompany || '',
+          'Date of Finance Approval': documentData.customerData.financeApprovalDate || new Date().toLocaleDateString('en-US'),
+          'Date of Installation': documentData.customerData.installDate || documentData.customerData.installationDate || new Date().toLocaleDateString('en-US'),
+
+          // Equipment
+          'Equipment Installed': documentData.customerData.equipment || ''
         };
 
         // Handle membership type selection and dates
         const membershipType = documentData.customerData.membershipType || 'platinum';
         const today = new Date();
 
-        // Set membership type checkboxes
-        membershipFields[`${membershipType.charAt(0).toUpperCase() + membershipType.slice(1)}Membership`] = 'Yes';
+        // Note: Membership type checkboxes are handled separately after text fields
 
         // Calculate membership duration based on type
         let membershipDurationYears = 3; // Default to Platinum (3 years)
@@ -291,22 +289,18 @@ ${documentData.customerData.notes}`;
           membershipDurationYears = 1;
         }
 
-        // Set membership start and end dates
+        // Set membership start and end dates (using EXACT field names with spaces!)
         const startDate = documentData.customerData.membershipStartDate ?
           new Date(documentData.customerData.membershipStartDate) : today;
         const endDate = new Date(startDate);
         endDate.setFullYear(endDate.getFullYear() + membershipDurationYears);
 
-        membershipFields['MembershipStartDate'] = startDate.toLocaleDateString('en-US');
-        membershipFields['MembershipEndDate'] = endDate.toLocaleDateString('en-US');
-        membershipFields['StartDate'] = startDate.toLocaleDateString('en-US');
-        membershipFields['EndDate'] = endDate.toLocaleDateString('en-US');
+        membershipFields['Membership Start Date'] = startDate.toLocaleDateString('en-US');
+        membershipFields['Membership End Date'] = endDate.toLocaleDateString('en-US');
 
-        // Set today's date for various date fields
+        // Set today's date for signature
         const todayFormatted = today.toLocaleDateString('en-US');
         membershipFields['Date'] = todayFormatted;
-        membershipFields['SignatureDate'] = todayFormatted;
-        membershipFields['ContractDate'] = todayFormatted;
 
         // Fill all Membership Plan fields
         console.log('=== MEMBERSHIP PLAN: Starting field filling ===');
@@ -339,19 +333,7 @@ ${documentData.customerData.notes}`;
               // Field might not be a text field, try other methods
             }
 
-            // Method 2: Try as checkbox for membership type
-            if (!fieldSet && (fieldName.includes('Membership') && value === 'Yes')) {
-              try {
-                const checkboxField = form.getCheckBox(fieldName);
-                if (checkboxField) {
-                  checkboxField.check();
-                  console.log(`✓ Checked checkbox ${fieldName}`);
-                  fieldSet = true;
-                }
-              } catch (e) {
-                // Not a checkbox, continue
-              }
-            }
+            // Method 2: Skip - checkboxes handled separately
 
             // Method 3: If not set yet, try generic field approach
             if (!fieldSet) {
@@ -376,6 +358,40 @@ ${documentData.customerData.notes}`;
             console.log(`✗ Error with field ${fieldName}:`, fieldError.message);
           }
         }
+
+        // Handle membership type checkboxes separately with exact names
+        console.log('=== MEMBERSHIP PLAN: Setting membership type checkboxes ===');
+        const checkboxes = ['PlatinumBox', 'GoldBox', 'SilverBox'];
+        const membershipBoxMapping = {
+          'platinum': 'PlatinumBox',
+          'gold': 'GoldBox',
+          'silver': 'SilverBox'
+        };
+
+        // First uncheck all boxes
+        checkboxes.forEach(boxName => {
+          try {
+            const checkbox = form.getCheckBox(boxName);
+            checkbox.uncheck();
+            console.log(`Unchecked ${boxName}`);
+          } catch (e) {
+            console.log(`Could not uncheck ${boxName}:`, e.message);
+          }
+        });
+
+        // Then check the selected membership type
+        const selectedBox = membershipBoxMapping[membershipType.toLowerCase()];
+        if (selectedBox) {
+          try {
+            const checkbox = form.getCheckBox(selectedBox);
+            checkbox.check();
+            console.log(`✓ Checked membership type: ${selectedBox} for ${membershipType}`);
+          } catch (e) {
+            console.log(`Could not check ${selectedBox}:`, e.message);
+          }
+        }
+
+        console.log('=== MEMBERSHIP PLAN: Field filling complete ===');
       } else if (documentData.document.document_type === 'charge-slip' || documentData.document.id === 'charge-slip') {
         // Fill Charge Slip specific fields
         const chargeSlipFields = {
