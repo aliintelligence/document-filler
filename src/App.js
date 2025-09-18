@@ -6,6 +6,7 @@ import CustomerList from './components/CustomerList';
 import CustomerForm from './components/CustomerForm';
 import DocumentSelector from './components/DocumentSelector';
 import PDFProcessor from './components/PDFProcessor';
+import InstallPicturesUpload from './components/InstallPicturesUpload';
 import CompletionScreen from './components/CompletionScreen';
 import CustomerDashboard from './components/CustomerDashboard';
 import './App.css';
@@ -80,7 +81,47 @@ function AppContent() {
 
   const handleProcessingComplete = (result) => {
     setCompletionResult(result);
-    setCurrentStep('complete');
+
+    // Check if this is an HD docs contract that needs install pictures
+    if (documentData?.document?.document_type === 'hd-docs') {
+      setCurrentStep('installPictures');
+    } else {
+      setCurrentStep('complete');
+    }
+  };
+
+  const handleInstallPicturesSubmit = async (picturesData) => {
+    try {
+      const response = await fetch('/api/send-install-pictures', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(picturesData)
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Add pictures info to completion result
+        setCompletionResult(prev => ({
+          ...prev,
+          installPicturesSent: true,
+          pictureCount: result.pictureCount
+        }));
+        setCurrentStep('complete');
+      } else {
+        throw new Error(result.error || 'Failed to send pictures');
+      }
+    } catch (error) {
+      console.error('Error sending install pictures:', error);
+      alert('Failed to send install pictures. Please try again.');
+      throw error;
+    }
+  };
+
+  const handleInstallPicturesBack = () => {
+    setCurrentStep('processing');
   };
 
   const handleNewDocument = () => {
@@ -165,8 +206,13 @@ function AppContent() {
               <span className={currentStep === 'processing' ? 'active' : ''}>
                 3. Process
               </span>
+              {documentData?.document?.document_type === 'hd-docs' && (
+                <span className={currentStep === 'installPictures' ? 'active' : ''}>
+                  4. Install Photos
+                </span>
+              )}
               <span className={currentStep === 'complete' ? 'active' : ''}>
-                4. Complete
+                {documentData?.document?.document_type === 'hd-docs' ? '5. Complete' : '4. Complete'}
               </span>
             </div>
             {selectedCustomer && currentStep !== 'customerList' && currentStep !== 'customerForm' && (
@@ -222,6 +268,14 @@ function AppContent() {
           <PDFProcessor
             documentData={documentData}
             onComplete={handleProcessingComplete}
+          />
+        )}
+
+        {currentStep === 'installPictures' && selectedCustomer && (
+          <InstallPicturesUpload
+            customerData={selectedCustomer}
+            onPicturesSubmit={handleInstallPicturesSubmit}
+            onBack={handleInstallPicturesBack}
           />
         )}
 
