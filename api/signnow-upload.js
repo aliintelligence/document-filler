@@ -199,6 +199,21 @@ async function addSignatureFields(apiUrl, apiKey, documentId, documentType, lang
         x: 20, y: 447, width: 180, height: 24,
         page_number: 0, role: 'Signer 1', required: true
       }
+    ],
+    // Membership plans - 1 signature
+    'membership-plan_english': [
+      {
+        type: 'signature',
+        x: 69, y: 567, width: 123, height: 32,
+        page_number: 0, role: 'Signer 1', required: true
+      }
+    ],
+    'membership-plan_spanish': [
+      {
+        type: 'signature',
+        x: 69, y: 567, width: 123, height: 32,
+        page_number: 0, role: 'Signer 1', required: true
+      }
     ]
   };
 
