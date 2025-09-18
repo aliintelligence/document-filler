@@ -158,6 +158,7 @@ const PDFProcessor = ({ documentData, onComplete }) => {
           'txtSalespersonName': documentData.customerData.salespersonName || '',
           'txtAuthorizedRepresentativeName': documentData.customerData.authorizedRepresentative || '',
           'txtServiceProviderLicenseNumber': documentData.customerData.licenseNumber || '',
+          'txtModel1': documentData.customerData.equipment || '',
         };
 
         // Create the scope/equipment description field
