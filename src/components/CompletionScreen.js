@@ -86,14 +86,6 @@ const CompletionScreen = ({ result, onNewDocument, documentData, customerData })
             ) : (
               <p>📧 Signature request sent to customer's email</p>
             )}
-            {result.signatureUrl && (
-              <a href={result.signatureUrl} target="_blank" rel="noopener noreferrer" className="signature-link">
-                View in SignNow →
-              </a>
-            )}
-            {result.documentId && (
-              <p className="document-id">Document ID: {result.documentId}</p>
-            )}
           </div>
 
           {/* Additional completion info */}
